@@ -14,28 +14,11 @@ from collections import Counter
 import pickle
 import random
 
-
-import numpy
-from sklearn.metrics import roc_auc_score
-import keras
-from keras.utils.np_utils import *
-from keras.preprocessing.text import Tokenizer, text_to_word_sequence
-from keras.preprocessing.sequence import pad_sequences
-from keras.utils.np_utils import to_categorical
-
-from keras.layers import Embedding, concatenate
-from keras.layers import Dense, Input, Flatten, average,Lambda
-
-from keras.layers import *
-from keras.models import Model, load_model
-from keras.callbacks import EarlyStopping, ModelCheckpoint
-
-from keras import backend as K
-import keras.layers as layers
-from keras.engine.topology import Layer, InputSpec
-from keras import initializers #keras2
-from keras.utils import plot_model
-from keras.optimizers import *
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Dataset
+import torch.optim as optim
 
 
 def get_doc_encoder(config,text_length,embedding_layer):
