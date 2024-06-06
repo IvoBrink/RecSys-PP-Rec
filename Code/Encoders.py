@@ -100,76 +100,75 @@ class Vert_encoder(nn.Module):
         self.news_encoder = config['news_encoder_name']
         self.embedding_layer = ??? # keras.layers.embedding
         self.dropout = nn.Dropout(p=0.2)
-        self.reshape = ??? # keras.layers.reshape
 
     def forward(self, x):
         x = self.embedding_layer(x) 
-        x = self.reshape(x) #??
+        x = x.view(400, -1) #reshape ?
         x = self.dropout(x)
         return x
 
-def get_news_encoder(config,vert_num,subvert_num,word_num,word_embedding_matrix,entity_embedding_matrix):
-    LengthTable = {'title':config['title_length'],
-                   'body':config['body_length'],
-                   'vert':1,'subvert':1,
-                   'entity':config['max_entity_num']}
-    input_length = 0
-    PositionTable = {}
-    for v in config['attrs']:
-        PositionTable[v] = (input_length,input_length+LengthTable[v])
-        input_length += LengthTable[v]
-    print(PositionTable)
-    word_embedding_layer = Embedding(word_num+1, word_embedding_matrix.shape[1], weights=[word_embedding_matrix],trainable=True)
+# def get_news_encoder(config,vert_num,subvert_num,word_num,word_embedding_matrix,entity_embedding_matrix):
+#     LengthTable = {'title':config['title_length'],
+#                    'body':config['body_length'],
+#                    'vert':1,'subvert':1,
+#                    'entity':config['max_entity_num']}
+#     input_length = 0
+#     PositionTable = {}
+#     for v in config['attrs']:
+#         PositionTable[v] = (input_length,input_length+LengthTable[v])
+#         input_length += LengthTable[v]
+#     print(PositionTable)
+#     word_embedding_layer = Embedding(word_num+1, word_embedding_matrix.shape[1], weights=[word_embedding_matrix],trainable=True)
 
-    news_input = Input((input_length,),dtype='int32')
+#     news_input = Input((input_length,),dtype='int32')
     
-    title_vec = None
-    body_vec = None
-    vert_vec = None
-    subvert_vec = None
-    entity_vec = None
+#     title_vec = None
+#     body_vec = None
+#     vert_vec = None
+#     subvert_vec = None
+#     entity_vec = None
     
-    if 'title' in config['attrs']:
-        title_input = keras.layers.Lambda(lambda x:x[:,PositionTable['title'][0]:PositionTable['title'][1]])(news_input)
-        title_encoder = get_doc_encoder(config,LengthTable['title'],word_embedding_layer)
-        title_vec = title_encoder(title_input)
+#     if 'title' in config['attrs']:
+#         title_input = keras.layers.Lambda(lambda x:x[:,PositionTable['title'][0]:PositionTable['title'][1]])(news_input)
+#         title_encoder = get_doc_encoder(config,LengthTable['title'],word_embedding_layer)
+#         title_vec = title_encoder(title_input)
         
-    if 'body' in config['attrs']:
-        body_input = keras.layers.Lambda(lambda x:x[:,PositionTable['body'][0]:PositionTable['body'][1]])(news_input)
-        body_encoder = get_doc_encoder(config,LengthTable['body'],word_embedding_layer)
-        body_vec = body_encoder(body_input)
+#     if 'body' in config['attrs']:
+#         body_input = keras.layers.Lambda(lambda x:x[:,PositionTable['body'][0]:PositionTable['body'][1]])(news_input)
+#         body_encoder = get_doc_encoder(config,LengthTable['body'],word_embedding_layer)
+#         body_vec = body_encoder(body_input)
 
-    if 'vert' in config['attrs']:
+#     if 'vert' in config['attrs']:
 
-        vert_input = keras.layers.Lambda(lambda x:x[:,PositionTable['vert'][0]:PositionTable['vert'][1]])(news_input)
-        vert_encoder = get_vert_encoder(config,vert_num)
-        vert_vec = vert_encoder(vert_input)
+#         vert_input = keras.layers.Lambda(lambda x:x[:,PositionTable['vert'][0]:PositionTable['vert'][1]])(news_input)
+#         vert_encoder = get_vert_encoder(config,vert_num)
+#         vert_vec = vert_encoder(vert_input)
     
-    if 'subvert' in config['attrs']:
-        subvert_input = keras.layers.Lambda(lambda x:x[:,PositionTable['subvert'][0]:PositionTable['subvert'][1]])(news_input)
-        subvert_encoder = get_vert_encoder(config,subvert_num)
-        subvert_vec = subvert_encoder(subvert_input)
+#     if 'subvert' in config['attrs']:
+#         subvert_input = keras.layers.Lambda(lambda x:x[:,PositionTable['subvert'][0]:PositionTable['subvert'][1]])(news_input)
+#         subvert_encoder = get_vert_encoder(config,subvert_num)
+#         subvert_vec = subvert_encoder(subvert_input)
     
-    if 'entity' in config['attrs']:
-        entity_input = keras.layers.Lambda(lambda x:x[:,PositionTable['entity'][0]:PositionTable['entity'][1]])(news_input)
-        entity_embedding_layer = Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
-        entity_emb = entity_embedding_layer(entity_input)
-        entity_vecs = Attention(20,20)([entity_emb,entity_emb,entity_emb])
-        entity_vec = AttentivePooling(LengthTable['entity'],400)(entity_vecs)
+#     if 'entity' in config['attrs']:
+#         entity_input = keras.layers.Lambda(lambda x:x[:,PositionTable['entity'][0]:PositionTable['entity'][1]])(news_input)
+#         entity_embedding_layer = Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
+#         entity_emb = entity_embedding_layer(entity_input)
+#         entity_vecs = Attention(20,20)([entity_emb,entity_emb,entity_emb])
+#         entity_vec = AttentivePooling(LengthTable['entity'],400)(entity_vecs)
         
-    vec_Table = {'title':title_vec,'body':body_vec,'vert':vert_vec,'subvert':subvert_vec,'entity':entity_vec}
-    feature = []
-    for attr in config['attrs']:
-        feature.append(vec_Table[attr])
-    if len(feature)==1:
-        news_vec = feature[0]
-    else:
-        for i in range(len(feature)):
-            feature[i] = keras.layers.Reshape((1,400))(feature[i])
-        news_vecs = keras.layers.Concatenate(axis=1)(feature)
-        news_vec = AttentivePooling(len(config['attrs']),400)(news_vecs)
-    model = Model(news_input,news_vec)
-    return model
+#     vec_Table = {'title':title_vec,'body':body_vec,'vert':vert_vec,'subvert':subvert_vec,'entity':entity_vec}
+#     feature = []
+#     for attr in config['attrs']:
+#         feature.append(vec_Table[attr])
+#     if len(feature)==1:
+#         news_vec = feature[0]
+#     else:
+#         for i in range(len(feature)):
+#             feature[i] = keras.layers.Reshape((1,400))(feature[i])
+#         news_vecs = keras.layers.Concatenate(axis=1)(feature)
+#         news_vec = AttentivePooling(len(config['attrs']),400)(news_vecs)
+#     model = Model(news_input,news_vec)
+#     return model
 
 class News_encoder(nn.Module):
     def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix):
@@ -244,17 +243,44 @@ class News_encoder(nn.Module):
 
         return news_vec
     
+# timedist module: https://discuss.pytorch.org/t/any-pytorch-function-can-work-as-keras-timedistributed/1346/4
+# TODO: can we use this?
+class TimeDistributed(nn.Module):
+    def __init__(self, module, batch_first=False):
+        super(TimeDistributed, self).__init__()
+        self.module = module
+        self.batch_first = batch_first
+
+    def forward(self, x):
+
+        if len(x.size()) <= 2:
+            return self.module(x)
+
+        # Squash samples and timesteps into a single axis
+        x_reshape = x.contiguous().view(-1, x.size(-1))  # (samples * timesteps, input_size)
+
+        y = self.module(x_reshape)
+
+        # We have to reshape Y
+        if self.batch_first:
+            y = y.contiguous().view(x.size(0), -1, y.size(-1))  # (samples, timesteps, output_size)
+        else:
+            y = y.view(-1, x.size(1), y.size(-1))  # (timesteps, samples, output_size)
+
+        return y
+    
 def create_model(config,News,word_embedding_matrix,entity_embedding_matrix):
     max_clicked_news = config['max_clicked_news']
         
-    news_encoder = get_news_encoder(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix)
+    # news_encoder = get_news_encoder(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix)
+    news_encoder = News_encoder(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix)
     news_input_length = int(news_encoder.input.shape[1])
-    print(news_input_length)
+    # print(news_input_length)
     clicked_input = Input(shape=(max_clicked_news, news_input_length,), dtype='int32')
-    print(clicked_input.shape)
+    # print(clicked_input.shape)
     user_vecs = TimeDistributed(news_encoder)(clicked_input)
 
-    if config['user_encoder_name']=='SelfAtt':
+    if config['user_encoder_name'] =='SelfAtt':
         user_vecs = Attention(20,20)([user_vecs,user_vecs,user_vecs])
         user_vecs = Dropout(0.2)(user_vecs)
         user_vec = AttentivePooling(max_clicked_news,400)(user_vecs)
@@ -265,7 +291,6 @@ def create_model(config,News,word_embedding_matrix,entity_embedding_matrix):
         user_vecs = Dropout(0.2)(user_vecs)
         user_vec = GRU(400,activation='tanh')(user_vecs)
         
-
     candidates = keras.Input((1+config['npratio'],news_input_length,), dtype='int32')
     candidate_vecs = TimeDistributed(news_encoder)(candidates)
     score = keras.layers.Dot(axes=-1)([user_vec,candidate_vecs])
@@ -280,6 +305,8 @@ def create_model(config,News,word_embedding_matrix,entity_embedding_matrix):
     user_encoder = Model([clicked_input],user_vec)
     
     return model,user_encoder,news_encoder
+
+
 
 def get_news_encoder_co1(config,vert_num,subvert_num,word_num,word_embedding_matrix,entity_embedding_matrix):
     LengthTable = {'title':config['title_length'],
