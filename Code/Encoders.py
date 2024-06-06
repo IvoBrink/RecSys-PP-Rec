@@ -21,32 +21,92 @@ from torch.utils.data import DataLoader, Dataset
 import torch.optim as optim
 
 
-def get_doc_encoder(config,text_length,embedding_layer):
-    news_encoder = config['news_encoder_name']
-    sentence_input = Input(shape=(text_length,), dtype='int32')
-    embedded_sequences = embedding_layer(sentence_input)
-    d_et=Dropout(0.2)(embedded_sequences)
-    if news_encoder=='CNN':
-        l_cnnt = Conv1D(400,kernel_size=3,activation='relu')(d_et)
-        #l_cnnt =Attention(20,20)([d_et,d_et,d_et])
-    elif news_encoder=='SelfAtt':
-        l_cnnt =Attention(20,20)([d_et,d_et,d_et])
-    elif news_encoder=='SelfAttPE':
-        d_et = PositionEmbedding(title_length,300)(d_et)
-        l_cnnt =Attention(20,20)([d_et,d_et,d_et])
-    d_ct=Dropout(0.2)(l_cnnt)
-    l_att = AttentivePooling(text_length,400)(d_ct)
-    sentEncodert = Model(sentence_input, l_att)
-    return sentEncodert
+# def get_doc_encoder(config,text_length,embedding_layer):
+#     news_encoder = config['news_encoder_name']
+#     # sentence_input = Input(shape=(1,), dtype = 'int32')
+#     sentence_input = torch.empty((text_length,), dtype=torch.int32)
+#     embedded_sequences = embedding_layer(sentence_input)
 
-def get_vert_encoder(config,vert_num,):
-    vert_input = Input(shape=(1,))
-    embedding_layer = Embedding(vert_num+1, 400,trainable=True)
-    vert_emb = embedding_layer(vert_input)
-    vert_emb = keras.layers.Reshape((400,))(vert_emb)
-    vert_emb = Dropout(0.2)(vert_emb)
-    model = Model(vert_input,vert_emb)
-    return model
+
+#     # d_et = Dropout(0.2)(embedded_sequences)
+#     d_et=F.dropout(embedded_sequences, p= 0.2)
+
+#     if news_encoder=='CNN':
+#         # l_cnnt = Conv1D(400,kernel_size=3,activation='relu')(d_et)
+#         l_cnnt = F.conv1d(d_et, torch.randn(400, text_length, 3))
+#         l_cnnt = F.relu(l_cnnt)
+        
+#     elif news_encoder=='SelfAtt':
+#         # l_cnnt =Attention(20,20)([d_et,d_et,d_et])
+#         l_cnnt = Attention(20, 20)(d_et,d_et,d_et)
+
+#     elif news_encoder=='SelfAttPE':
+#         # d_et = PositionEmbedding(title_length,300)(d_et) keras.layers.PositionEmbedding
+#         d_et = ???
+
+#         # l_cnnt =Attention(20,20)([d_et,d_et,d_et])
+#         l_cnnt = Attention(20, 20)(d_et,d_et,d_et)
+#     # d_ct=Dropout(0.2)(l_cnnt)
+#     d_ct = F.dropout(l_cnnt, p= 0.2)
+#     l_att = AttentivePooling(text_length,400)(d_ct)
+#     sentEncodert = Model(sentence_input, l_att) keras.models
+#     return sentEncodert
+
+class Doc_encoder(nn.Module):
+    def __init__(self, config, text_length, embedding_layer):
+        self.news_encoder = config['news_encoder_name']
+        self.embedding_layer = embedding_layer
+        self.dropout = nn.Dropout(p=0.2)
+        # is it size 1 as in one document?
+        self.conv = nn.Conv1d(1, 400, 3)
+        self.relu = nn.ReLU()
+        self.attention = Attention(20,20)
+        self.attentivePool = AttentivePooling(text_length, 400)
+
+
+    def forward(self, x):
+        x = self.embedding_layer(x) 
+        x = self.dropout(x)
+
+        if self.news_encoder=='CNN':
+            x = self.conv(x)
+            x = self.relu(x)
+            
+        elif self.news_encoder=='SelfAtt':
+            x = self.attention(x, x, x)
+
+        elif self.news_encoder=='SelfAttPE':
+            # d_et = PositionEmbedding(title_length,300)(d_et) keras.layers.PositionEmbedding
+            x = ???
+            x = self.attention(x, x, x)
+        
+        x = self.dropout(x)
+        x = self.attentivePool(x)
+        return x
+
+
+
+# def get_vert_encoder(config,vert_num,):
+#     vert_input = Input(shape=(1,))
+#     embedding_layer = Embedding(vert_num+1, 400,trainable=True)
+#     vert_emb = embedding_layer(vert_input)
+#     vert_emb = keras.layers.Reshape((400,))(vert_emb)
+#     vert_emb = Dropout(0.2)(vert_emb)
+#     model = Model(vert_input,vert_emb)
+#     return model
+        
+class Vert_encoder(nn.Module):
+    def __init__(self, config, vert_num):
+        self.news_encoder = config['news_encoder_name']
+        self.embedding_layer = ??? # keras.layers.embedding
+        self.dropout = nn.Dropout(p=0.2)
+        self.reshape = ??? # keras.layers.reshape
+
+    def forward(self, x):
+        x = self.embedding_layer(x) 
+        x = self.reshape(x) #??
+        x = self.dropout(x)
+        return x
 
 def get_news_encoder(config,vert_num,subvert_num,word_num,word_embedding_matrix,entity_embedding_matrix):
     LengthTable = {'title':config['title_length'],
@@ -111,6 +171,79 @@ def get_news_encoder(config,vert_num,subvert_num,word_num,word_embedding_matrix,
     model = Model(news_input,news_vec)
     return model
 
+class News_encoder(nn.Module):
+    def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix):
+        self.config = config
+        self.vert_num = vert_num
+        self.subvert_num = subvert_num
+        self.word_num = word_num
+        self.word_embedding_matrix = word_embedding_matrix
+        self.entity_embedding_matrix = entity_embedding_matrix
+        self.LengthTable = {'title':config['title_length'],
+                   'body':config['body_length'],
+                   'vert':1,'subvert':1,
+                   'entity':config['max_entity_num']}
+        self.input_length = 0
+        self.PositionTable = {}
+        for v in config['attrs']:
+            self.PositionTable[v] = (self.input_length, self.input_length + self.LengthTable[v])
+            self.input_length += self.LengthTable[v]
+        
+        self.word_embedding_layer = ??? # keras.layers.embedding
+        self.entity_embedding_layer = ??? #Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
+        self.attention = Attention(20,20)
+        self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
+        
+        self.title_vec = None
+        self.body_vec = None
+        self.vert_vec = None
+        self.subvert_vec = None
+        self.entity_vec = None
+
+    def forward(self, x):
+
+        if 'title' in self.config['attrs']:
+            title_input = lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]] in x
+            title_encoder = Doc_encoder(self.config, self.LengthTable['title'], self.word_embedding_layer)
+            title_vec = title_encoder(title_input)
+        
+        if 'body' in self.config['attrs']:
+            body_input = lambda xi: xi[:, self.PositionTable['body'][0] : self.PositionTable['body'][1]] in x
+            body_encoder = Doc_encoder(self.config, self.LengthTable['body'], self.word_embedding_layer)
+            body_vec = body_encoder(body_input)
+
+        if 'vert' in self.config['attrs']:
+            vert_input = lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]] in x
+            vert_encoder = Vert_encoder(self.config, self.vert_num)
+            vert_vec = vert_encoder(vert_input)
+        
+        if 'subvert' in self.config['attrs']:
+            subvert_input = lambda xi: xi[:, self.PositionTable['subvert'][0] : self.PositionTable['subvert'][1]] in x
+            subvert_encoder = Vert_encoder(self.config, self.subvert_num)
+            subvert_vec = subvert_encoder(subvert_input)
+        
+        if 'entity' in self.config['attrs']:
+            entity_input = lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]] in x
+            entity_emb = self.entity_embedding_layer(entity_input)
+            entity_vecs = self.attention(entity_emb,entity_emb,entity_emb)
+            entity_vec = self.attentive_pool(entity_vecs)
+
+        vec_Table = {'title':title_vec,'body':body_vec,'vert':vert_vec,'subvert':subvert_vec,'entity':entity_vec}
+        feature = []
+        for attr in self.config['attrs']:
+            feature.append(vec_Table[attr])
+
+        if len(feature)==1:
+            news_vec = feature[0]
+        else:
+            for i in range(len(feature)):
+                feature[i] = torch.reshape(feature(i), (1, 400)) #keras.layers.Reshape((1,400))(feature[i])    
+            news_vecs = torch.cat(feature, dim = 1)   # keras.layers.Concatenate(axis=1)(feature)
+            news_vec = AttentivePooling(len(self.config['attrs']), 400)(news_vecs)
+    
+
+        return news_vec
+    
 def create_model(config,News,word_embedding_matrix,entity_embedding_matrix):
     max_clicked_news = config['max_clicked_news']
         
