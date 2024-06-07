@@ -89,5 +89,3 @@ class UserContent:
 
             self.click[user_id] = np.array(clicks)
             self.click_bucket[user_id] = np.array(click_bucket)
-
-
