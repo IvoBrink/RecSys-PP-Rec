@@ -37,7 +37,6 @@
 # from keras.utils import plot_model
 # from keras.optimizers import *
 
-
 from NewsContent import *
 from UserContent import *
 from preprocessing import *
