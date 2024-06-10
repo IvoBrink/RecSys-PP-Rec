@@ -380,7 +380,7 @@ class News_encoder_co1(nn.Module):
             self.input_length += self.LengthTable[v]
         
         self.word_embedding_layer = nn.Embedding(self.word_num+1, self.word_embedding_matrix.shape[1], _weight=self.word_embedding_matrix) # keras.layers.embedding
-        self.vert_embedding_layer = nn.Embedding(self.vert_num + 1, 200) # Embedding(vert_num+1, 200,trainable=True) TODO trainable y/n
+        self.vert_embedding_layer = nn.Embedding(self.vert_num + 1, 200) # Embedding(vert_num+1, 200,trainable=True) 
         self.entity_embedding_layer = nn.Embedding(self.entity_embedding_matrix.shape[0], self.entity_embedding_matrix.shape[1]) # Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=True)
         self.attention = Attention(20,20)
         self.attention2 = Attention(5,40)
@@ -544,7 +544,7 @@ class News_encoder_co1(nn.Module):
 #     return model
 
 # timedist module: https://discuss.pytorch.org/t/any-pytorch-function-can-work-as-keras-timedistributed/1346/4
-# TODO: can we use this?
+#  can we use this?
 class TimeDistributed(nn.Module):
     def __init__(self, module, batch_first=False):
         super(TimeDistributed, self).__init__()
@@ -708,7 +708,7 @@ class Popularity_aware_user_encoder(nn.Module):
         self.max_clicked_news = config['max_clicked_news']
         self.news_encoder = news_encoder
         
-        self.news_input_length = int(self.news_encoder.input.shape[1]) # TODO does this work like this in torch?
+        self.news_input_length = int(self.news_encoder.input.shape[1]) #  does this work like this in torch?
 
         self.timeDistributed = TimeDistributed(self.news_encoder)
         self.popularity_embedding_layer = nn.Embedding(200,400) # Embedding(200, 400,trainable=True)
@@ -793,7 +793,7 @@ class Activity_gater(nn.Module):
     def forward(self, x):
         #user_vec_input = keras.layers.Input((400,),)
         activity_gate = self.tanh(self.fc1(x)) # Dense(128,activation='tanh')(user_vec_input)
-        activity_gate = self.tanh(self.fc2(activity_gate)) # Dense(64,activation='tanh')(user_vec_input) TODO their mistake? same input
+        activity_gate = self.tanh(self.fc2(x)) # Dense(64,activation='tanh')(user_vec_input) TODO their mistake? same input
         activity_gate = self.sigmoid(self.fc3(activity_gate)) # Dense(1,activation='sigmoid')(activity_gate)
         activity_gate = activity_gate.view(1,-1) # keras.layers.Reshape((1,))(activity_gate)
         return activity_gate #activity_gater = Model(user_vec_input,activity_gate)
