@@ -77,6 +77,7 @@ class PositionEmbedding(nn.Module):
 
 class Doc_encoder(nn.Module):
     def __init__(self, config, text_length, embedding_layer):
+        super().__init__()
         self.news_encoder = config['news_encoder_name']
         self.embedding_layer = embedding_layer
         self.dropout = nn.Dropout(p=0.2)
@@ -121,6 +122,7 @@ class Doc_encoder(nn.Module):
         
 class Vert_encoder(nn.Module):
     def __init__(self, config, vert_num):
+        super().__init__()
         self.news_encoder = config['news_encoder_name']
         self.embedding_layer = nn.Embedding(vert_num+1, 400) # keras.layers.embedding
         self.dropout = nn.Dropout(p=0.2)
@@ -196,6 +198,7 @@ class Vert_encoder(nn.Module):
 
 class News_encoder(nn.Module):
     def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix):
+        super().__init__()
         self.config = config
         self.vert_num = vert_num
         self.subvert_num = subvert_num
@@ -226,27 +229,27 @@ class News_encoder(nn.Module):
     def forward(self, x):
 
         if 'title' in self.config['attrs']:
-            title_input = lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]] in x
+            title_input = (lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]]) (x)
             title_encoder = Doc_encoder(self.config, self.LengthTable['title'], self.word_embedding_layer)
             title_vec = title_encoder(title_input)
         
         if 'body' in self.config['attrs']:
-            body_input = lambda xi: xi[:, self.PositionTable['body'][0] : self.PositionTable['body'][1]] in x
+            body_input = (lambda xi: xi[:, self.PositionTable['body'][0] : self.PositionTable['body'][1]]) (x)
             body_encoder = Doc_encoder(self.config, self.LengthTable['body'], self.word_embedding_layer)
             body_vec = body_encoder(body_input)
 
         if 'vert' in self.config['attrs']:
-            vert_input = lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]] in x
+            vert_input = (lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]]) (x)
             vert_encoder = Vert_encoder(self.config, self.vert_num)
             vert_vec = vert_encoder(vert_input)
         
         if 'subvert' in self.config['attrs']:
-            subvert_input = lambda xi: xi[:, self.PositionTable['subvert'][0] : self.PositionTable['subvert'][1]] in x
+            subvert_input = (lambda xi: xi[:, self.PositionTable['subvert'][0] : self.PositionTable['subvert'][1]]) (x)
             subvert_encoder = Vert_encoder(self.config, self.subvert_num)
             subvert_vec = subvert_encoder(subvert_input)
         
         if 'entity' in self.config['attrs']:
-            entity_input = lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]] in x
+            entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]]) (x)
             entity_emb = self.entity_embedding_layer(entity_input)
             entity_vecs = self.attention(entity_emb,entity_emb,entity_emb)
             entity_vec = self.attentive_pool(entity_vecs)
@@ -360,6 +363,7 @@ class News_encoder(nn.Module):
 
 class News_encoder_co1(nn.Module):
     def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix):
+        super().__init__()
         self.config = config
         self.vert_num = vert_num
         self.subvert_num = subvert_num
@@ -383,9 +387,9 @@ class News_encoder_co1(nn.Module):
         self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
         self.attentive_pool2 = AttentivePooling(self.config['title_length'], 400)
         self.dropout = nn.Dropout(p = 0.2)
-        self.fc1 = nn.Linear(20*20*5*40,400)
-        self.fc2 = nn.Linear(20*20*5*40,400)
-        self.fc3 = ... #nn.Linear(???,400) TODO choose random and see?
+        self.fc1 = nn.LazyLinear(400)
+        self.fc2 = nn.LazyLinear(400)
+        self.fc3 = nn.LazyLinear(400) #nn.Linear(???,400) 
         
         self.title_vec = None
         self.body_vec = None
@@ -395,16 +399,16 @@ class News_encoder_co1(nn.Module):
 
     def forward(self, x):
 
-        vert_input = lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]] in x
+        vert_input = (lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]]) (x)
         vert_emb = self.vert_embedding_layer(vert_input)
         vert_emb = vert_emb.view(200,-1)
         vert_vec = self.dropout(vert_emb)
 
-        title_input = lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]] in x
+        title_input = (lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]]) (x)
         title_emb = self.word_embedding_layer(title_input)
         title_emb = self.dropout(title_emb)
 
-        entity_input = lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]] in x
+        entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]])  (x)
         entity_emb = self.entity_embedding_layer(entity_input)
 
         title_co_emb = self.attention2(title_emb,entity_emb,entity_emb)
@@ -565,154 +569,145 @@ class TimeDistributed(nn.Module):
 
         return y
 
-def create_pe_model(config,model_config,News,word_embedding_matrix,entity_embedding_matrix):
-    max_clicked_news = config['max_clicked_news']
+# def create_pe_model(config,model_config,News,word_embedding_matrix,entity_embedding_matrix):
+#     max_clicked_news = config['max_clicked_news']
         
-    if model_config['news_encoder'] == 0:
-        news_encoder = get_news_encoder(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix)
-        bias_news_encoder = get_news_encoder(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix) 
+#     if model_config['news_encoder'] == 0:
+#         news_encoder = get_news_encoder(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix)
+#         bias_news_encoder = get_news_encoder(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix) 
 
-    elif model_config['news_encoder'] == 1:
-        news_encoder = get_news_encoder_co1(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix)
-        bias_news_encoder = get_news_encoder_co1(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix)
+#     elif model_config['news_encoder'] == 1:
+#         news_encoder = get_news_encoder_co1(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix)
+#         bias_news_encoder = get_news_encoder_co1(config,len(News.category_dict),len(News.subcategory_dict),len(News.word_dict),word_embedding_matrix,entity_embedding_matrix)
 
 
-    news_input_length = int(news_encoder.input.shape[1])
-    print(news_input_length)
-    clicked_input = Input(shape=(max_clicked_news, news_input_length,), dtype='int32')
-    clicked_ctr  = Input(shape=(max_clicked_news,),dtype='int32')
-    print(clicked_input.shape)
-    user_vecs = TimeDistributed(news_encoder)(clicked_input)
+#     news_input_length = int(news_encoder.input.shape[1])
+#     print(news_input_length)
+#     clicked_input = Input(shape=(max_clicked_news, news_input_length,), dtype='int32')
+#     clicked_ctr  = Input(shape=(max_clicked_news,),dtype='int32')
+#     print(clicked_input.shape)
+#     user_vecs = TimeDistributed(news_encoder)(clicked_input)
 
-    popularity_embedding_layer =  Embedding(200, 400,trainable=True)
-    popularity_embedding = popularity_embedding_layer(clicked_ctr)
+#     popularity_embedding_layer =  Embedding(200, 400,trainable=True)
+#     popularity_embedding = popularity_embedding_layer(clicked_ctr)
     
-    if model_config['popularity_user_modeling']:
-        popularity_embedding_layer =  Embedding(200, 400,trainable=True)
-        popularity_embedding = popularity_embedding_layer(clicked_ctr)
-        MHSA = Attention(20,20)
-        user_vecs = MHSA([user_vecs,user_vecs,user_vecs])
-        #user_vec_query = keras.layers.Add()([user_vecs,popularity_embedding])
-        user_vec_query = keras.layers.Concatenate(axis=-1)([user_vecs,popularity_embedding])
-        user_vec = AttentivePoolingQKY(50,800,400)([user_vec_query,user_vecs])
-    else:
-        user_vecs = Attention(20,20)([user_vecs,user_vecs,user_vecs])
-        user_vecs = Dropout(0.2)(user_vecs)
-        user_vec = AttentivePooling(max_clicked_news,400)(user_vecs)
+#     if model_config['popularity_user_modeling']:
+#         popularity_embedding_layer =  Embedding(200, 400,trainable=True)
+#         popularity_embedding = popularity_embedding_layer(clicked_ctr)
+#         MHSA = Attention(20,20)
+#         user_vecs = MHSA([user_vecs,user_vecs,user_vecs])
+#         #user_vec_query = keras.layers.Add()([user_vecs,popularity_embedding])
+#         user_vec_query = keras.layers.Concatenate(axis=-1)([user_vecs,popularity_embedding])
+#         user_vec = AttentivePoolingQKY(50,800,400)([user_vec_query,user_vecs])
+#     else:
+#         user_vecs = Attention(20,20)([user_vecs,user_vecs,user_vecs])
+#         user_vecs = Dropout(0.2)(user_vecs)
+#         user_vec = AttentivePooling(max_clicked_news,400)(user_vecs)
     
-    candidates = keras.Input((1+config['npratio'],news_input_length,), dtype='int32')
-    candidates_ctr = keras.Input((1+config['npratio'],), dtype='float32')
-    candidates_rece_emb_index = keras.Input((1+config['npratio'],), dtype='int32')
+#     candidates = keras.Input((1+config['npratio'],news_input_length,), dtype='int32')
+#     candidates_ctr = keras.Input((1+config['npratio'],), dtype='float32')
+#     candidates_rece_emb_index = keras.Input((1+config['npratio'],), dtype='int32')
 
-    if model_config['rece_emb']:
-        bias_content_vec = Input(shape=(500,))
-        vec1 = keras.layers.Lambda(lambda x:x[:,:400])(bias_content_vec)
-        vec2 = keras.layers.Lambda(lambda x:x[:,400:])(bias_content_vec)
+#     if model_config['rece_emb']:
+#         bias_content_vec = Input(shape=(500,))
+#         vec1 = keras.layers.Lambda(lambda x:x[:,:400])(bias_content_vec)
+#         vec2 = keras.layers.Lambda(lambda x:x[:,400:])(bias_content_vec)
         
-        vec1 = Dense(256,activation='tanh')(vec1)
-        vec1 = Dense(256,activation='tanh')(vec1)
-        vec1 = Dense(128,)(vec1)
-        bias_content_score = Dense(1,use_bias=False)(vec1)
+#         vec1 = Dense(256,activation='tanh')(vec1)
+#         vec1 = Dense(256,activation='tanh')(vec1)
+#         vec1 = Dense(128,)(vec1)
+#         bias_content_score = Dense(1,use_bias=False)(vec1)
         
-        vec2 = Dense(64,activation='tanh')(vec2)
-        vec2 = Dense(64,activation='tanh')(vec2)
-        bias_recency_score = Dense(1,use_bias=False)(vec2)
+#         vec2 = Dense(64,activation='tanh')(vec2)
+#         vec2 = Dense(64,activation='tanh')(vec2)
+#         bias_recency_score = Dense(1,use_bias=False)(vec2)
         
-        gate = Dense(128,activation='tanh')(bias_content_vec)
-        gate = Dense(64,activation='tanh')(gate)
-        gate = Dense(1,activation='sigmoid')(gate)
+#         gate = Dense(128,activation='tanh')(bias_content_vec)
+#         gate = Dense(64,activation='tanh')(gate)
+#         gate = Dense(1,activation='sigmoid')(gate)
         
-        bias_content_score = keras.layers.Lambda(lambda x: (1-x[0])*x[1]+x[0]*x[2] )([gate,bias_content_score,bias_recency_score])
+#         bias_content_score = keras.layers.Lambda(lambda x: (1-x[0])*x[1]+x[0]*x[2] )([gate,bias_content_score,bias_recency_score])
     
-        bias_content_scorer = Model(bias_content_vec,bias_content_score)
+#         bias_content_scorer = Model(bias_content_vec,bias_content_score)
         
-    else:
-        bias_content_vec = Input(shape=(400,))
-        vec = Dense(256,activation='tanh')(bias_content_vec)
-        vec = Dense(256,activation='tanh')(vec)
-        vec = Dense(128,)(vec)
-        bias_content_score = Dense(1,use_bias=False)(vec)
-        bias_content_scorer = Model(bias_content_vec,bias_content_score)
+#     else:
+#         bias_content_vec = Input(shape=(400,))
+#         vec = Dense(256,activation='tanh')(bias_content_vec)
+#         vec = Dense(256,activation='tanh')(vec)
+#         vec = Dense(128,)(vec)
+#         bias_content_score = Dense(1,use_bias=False)(vec)
+#         bias_content_scorer = Model(bias_content_vec,bias_content_score)
     
-    time_embedding_layer = Embedding(1500, 100,trainable=True)
-    time_embedding = time_embedding_layer(candidates_rece_emb_index)
+#     time_embedding_layer = Embedding(1500, 100,trainable=True)
+#     time_embedding = time_embedding_layer(candidates_rece_emb_index)
     
-    candidate_vecs = TimeDistributed(news_encoder)(candidates)
-    bias_candidate_vecs = TimeDistributed(bias_news_encoder)(candidates)
-    if model_config['rece_emb']:
-        bias_candidate_vecs = keras.layers.Concatenate(axis=-1)([bias_candidate_vecs,time_embedding])
-    bias_candidate_score = TimeDistributed(bias_content_scorer)(bias_candidate_vecs)
-    bias_candidate_score = keras.layers.Reshape((1+config['npratio'],))(bias_candidate_score)
+#     candidate_vecs = TimeDistributed(news_encoder)(candidates)
+#     bias_candidate_vecs = TimeDistributed(bias_news_encoder)(candidates)
+#     if model_config['rece_emb']:
+#         bias_candidate_vecs = keras.layers.Concatenate(axis=-1)([bias_candidate_vecs,time_embedding])
+#     bias_candidate_score = TimeDistributed(bias_content_scorer)(bias_candidate_vecs)
+#     bias_candidate_score = keras.layers.Reshape((1+config['npratio'],))(bias_candidate_score)
     
-    rel_scores = keras.layers.Dot(axes=-1)([user_vec,candidate_vecs])
+#     rel_scores = keras.layers.Dot(axes=-1)([user_vec,candidate_vecs])
     
-    scaler =  Dense(1,use_bias=False,kernel_initializer=keras.initializers.Constant(value=19))
-    ctrs = keras.layers.Reshape((1+config['npratio'],1))(candidates_ctr)
-    ctrs = scaler(ctrs)
-    bias_ctr_score = keras.layers.Reshape((1+config['npratio'],))(ctrs)
+#     scaler =  Dense(1,use_bias=False,kernel_initializer=keras.initializers.Constant(value=19))
+#     ctrs = keras.layers.Reshape((1+config['npratio'],1))(candidates_ctr)
+#     ctrs = scaler(ctrs)
+#     bias_ctr_score = keras.layers.Reshape((1+config['npratio'],))(ctrs)
     
-    user_activity_input = keras.layers.Input((1,),dtype='int32')
+#     user_activity_input = keras.layers.Input((1,),dtype='int32')
     
-    user_vec_input = keras.layers.Input((400,),)
-    activity_gate = Dense(128,activation='tanh')(user_vec_input)
-    activity_gate = Dense(64,activation='tanh')(user_vec_input)
-    activity_gate = Dense(1,activation='sigmoid')(activity_gate)
-    activity_gate = keras.layers.Reshape((1,))(activity_gate)
-    activity_gater = Model(user_vec_input,activity_gate)
-    
-    
-    user_activtiy = activity_gater(user_vec)
-    
-    scores = []
-    if model_config['rel']:
-        if model_config['activity']:
-            print(user_activtiy.shape)
-            print(rel_scores.shape)
-            rel_scores = keras.layers.Lambda(lambda x:2*x[0]*x[1])([rel_scores,user_activtiy])
-            print(rel_scores.shape)
+#     user_vec_input = keras.layers.Input((400,),)
+#     activity_gate = Dense(128,activation='tanh')(user_vec_input)
+#     activity_gate = Dense(64,activation='tanh')(user_vec_input)
+#     activity_gate = Dense(1,activation='sigmoid')(activity_gate)
+#     activity_gate = keras.layers.Reshape((1,))(activity_gate)
+#     activity_gater = Model(user_vec_input,activity_gate)
 
-        scores.append(rel_scores)
-    if model_config['content']:
-        if model_config['activity']:
-            bias_candidate_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_candidate_score,user_activtiy])
-        scores.append(bias_candidate_score)
-    if model_config['ctr']:
-        if model_config['activity']:
-            bias_ctr_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_ctr_score,user_activtiy])
-        scores.append(bias_ctr_score)
+#     user_activtiy = activity_gater(user_vec)
+    
+#     scores = []
+#     if model_config['rel']:
+#         if model_config['activity']:
+#             print(user_activtiy.shape)
+#             print(rel_scores.shape)
+#             rel_scores = keras.layers.Lambda(lambda x:2*x[0]*x[1])([rel_scores,user_activtiy])
+#             print(rel_scores.shape)
 
+#         scores.append(rel_scores)
+#     if model_config['content']:
+#         if model_config['activity']:
+#             bias_candidate_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_candidate_score,user_activtiy])
+#         scores.append(bias_candidate_score)
+#     if model_config['ctr']:
+#         if model_config['activity']:
+#             bias_ctr_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_ctr_score,user_activtiy])
+#         scores.append(bias_ctr_score)
 
+#     if len(scores)>1:
+#         scores = keras.layers.Add()(scores)
+#     else:
+#         scores = scores[0]
+#     logits = keras.layers.Activation(keras.activations.softmax,name = 'recommend')(scores)
 
-    if len(scores)>1:
-        scores = keras.layers.Add()(scores)
-    else:
-        scores = scores[0]
-    logits = keras.layers.Activation(keras.activations.softmax,name = 'recommend')(scores)
-
-    model = Model([candidates,candidates_ctr,candidates_rece_emb_index,user_activity_input,clicked_input,clicked_ctr], [logits])
+#     model = Model([candidates,candidates_ctr,candidates_rece_emb_index,user_activity_input,clicked_input,clicked_ctr], [logits])
 
 
-    model.compile(loss=['categorical_crossentropy'],
-                  optimizer=Adam(lr=0.0001), 
-                  metrics=['acc'])
+#     model.compile(loss=['categorical_crossentropy'],
+#                   optimizer=Adam(lr=0.0001), 
+#                   metrics=['acc'])
 
-    user_encoder = Model([clicked_input,clicked_ctr],user_vec)
+#     user_encoder = Model([clicked_input,clicked_ctr],user_vec)
     
-    return model,user_encoder,news_encoder,bias_news_encoder,bias_content_scorer,scaler,time_embedding_layer,activity_gater
+#     return model,user_encoder,news_encoder,bias_news_encoder,bias_content_scorer,scaler,time_embedding_layer,activity_gater
 
 class Popularity_aware_user_encoder(nn.Module):
-    def __init__(self, config, model_config, News, word_embedding_matrix, entity_embedding_matrix):
+    def __init__(self, config, model_config, news_encoder):
+        super().__init__()
         self.model_config = model_config
         self.max_clicked_news = config['max_clicked_news']
+        self.news_encoder = news_encoder
         
-        if model_config['news_encoder'] == 0:
-            self.news_encoder = News_encoder(config, len(News.category_dict), len(News.subcategory_dict), len(News.word_dict), word_embedding_matrix, entity_embedding_matrix)
-            self.bias_news_encoder = News_encoder(config, len(News.category_dict), len(News.subcategory_dict), len(News.word_dict), word_embedding_matrix, entity_embedding_matrix) 
-
-        elif model_config['news_encoder'] == 1:
-            self.news_encoder = News_encoder_co1(config, len(News.category_dict), len(News.subcategory_dict), len(News.word_dict), word_embedding_matrix, entity_embedding_matrix)
-            self.bias_news_encoder = News_encoder_co1(config, len(News.category_dict), len(News.subcategory_dict), len(News.word_dict), word_embedding_matrix, entity_embedding_matrix)
-
         self.news_input_length = int(self.news_encoder.input.shape[1]) # TODO does this work like this in torch?
 
         self.timeDistributed = TimeDistributed(self.news_encoder)
@@ -737,111 +732,179 @@ class Popularity_aware_user_encoder(nn.Module):
         
         return user_vec
         
+class Bias_content_scorer(nn.Module):
+    def __init__(self, config, model_config):
+        super().__init__()
+        self.model_config = model_config
+        self.max_clicked_news = config['max_clicked_news']
+        
+        self.tanh = nn.Tanh()
+        self.sigmoid = nn.Sigmoid()
+
+        self.fc1_1 = nn.Linear(400, 256)
+        self.fc1_2 = nn.Linear(256, 256)
+        self.fc1_3 = nn.Linear(256, 128) 
+        self.fc1_4 = nn.Linear(128, 1, bias=False)
+
+        self.fc2_1 = nn.Linear(100, 64)
+        self.fc2_2 = nn.Linear(64, 64)
+        self.fc2_3 = nn.Linear(64, 1, bias=False)
+
+        self.fc3_1 = nn.Linear(500, 128)
+        self.fc3_2 = nn.Linear(128, 64)
+        self.fc3_3 = nn.Linear(64, 1)
+        
+
+    def forward(self, x):
+        # x = [bias_content_vec]
+
+        if self.model_config['rece_emb']:
+            # size 500
+            x = (lambda xi:xi[:, :400]) (x)
+            vec2 = (lambda xi:xi[:, 400:]) (x)
+
+            vec2 = self.tanh(self.fc2_1(vec2))
+            vec2 = self.tanh(self.fc2_2(vec2))
+            bias_recency_score = self.fc2_3(vec2)
+
+            gate = self.tanh(self.fc3_1(x))
+            gate = self.tanh(self.fc3_2(gate))
+            gate = self.sigmoid(self.fc3_3(gate))
+
+        vec = self.tanh(self.fc1_1(x))
+        vec = self.tanh(self.fc1_2(vec))
+        vec = self.fc1_3(vec)
+        bias_content_score = self.fc1_4(vec)
+
+        if self.model_config['rece_emb']:
+            bias_content_score = (lambda x: (1-x[0]) * x[1] + x[0] * x[2])(gate, bias_content_score, bias_recency_score)
+
+        return bias_content_score
     
+class Activity_gater(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.tanh = nn.Tanh()
+        self.sigmoid = nn.Sigmoid()
+        self.fc1 = nn.Linear(400,128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 1)
+
+    def forward(self, x):
+        #user_vec_input = keras.layers.Input((400,),)
+        activity_gate = self.tanh(self.fc1(x)) # Dense(128,activation='tanh')(user_vec_input)
+        activity_gate = self.tanh(self.fc2(activity_gate)) # Dense(64,activation='tanh')(user_vec_input) TODO their mistake? same input
+        activity_gate = self.sigmoid(self.fc3(activity_gate)) # Dense(1,activation='sigmoid')(activity_gate)
+        activity_gate = activity_gate.view(1,-1) # keras.layers.Reshape((1,))(activity_gate)
+        return activity_gate #activity_gater = Model(user_vec_input,activity_gate)
+    
+class Multiply(nn.Module):
+    def __init__(self, scaler):
+        super().__init__()
+    
+        self.scaler = scaler
+
+    def forward(self, x):
+        x = torch.multiply(x, self.scaler)
+        return x
+
+    
+class PE_model(nn.Module):
+    def __init__(self, config, model_config, News, word_embedding_matrix, entity_embedding_matrix):
+        super().__init__()
+        self.config = config
+        self.model_config = model_config
+        self.News = News
+        self.word_emb_mat = word_embedding_matrix
+        self.entity_emb_mat = entity_embedding_matrix
+
+        if model_config['news_encoder'] == 0:
+            self.news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
+            self.bias_news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat) 
+
+        elif model_config['news_encoder'] == 1:
+            self.news_encoder = News_encoder_co1(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
+            self.bias_news_encoder = News_encoder_co1(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
+
+        self.pop_aware_user_encoder = Popularity_aware_user_encoder(self.config, self.model_config, self.news_encoder)
+        self.bias_scorer = Bias_content_scorer(self.config, self.model_config)
+        self.activity_gater = Activity_gater()
+        
+        self.time_embedding_layer = nn.Embedding(1500, 100)
+        self.time_distributed1 = TimeDistributed(self.news_encoder)
+        self.time_distributed2 = TimeDistributed(self.bias_news_encoder)
+        self.time_distributed3 = TimeDistributed(self.bias_scorer)
+        # scaler =  Dense(1,use_bias=False,kernel_initializer=keras.initializers.Constant(value=19))
+        self.scaler = Multiply(19)
+        self.softmax = nn.Softmax()
+
+    def forward(self, x):
+        # model = Model([candidates,candidates_ctr,candidates_rece_emb_index,user_activity_input,clicked_input,clicked_ctr], [logits])
+    	# input candidates,candidates_ctr,candidates_rece_emb_index,user_activity_input,clicked_input,clicked_ctr
+        # 0 candidates
+        # 1 candidates ctr
+        # 2 candidates rece
+        # 3 user activity
+        # 4 clicked input
+        # 5 clicked ctr
+        time_embedding = self.time_embedding_layer(x[2])
+        candidate_vecs = self.time_distributed1(x[0])
+        bias_candidate_vecs = self.time_distributed2(x[0])
+
+        if self.model_config['rece_emb']:
+            bias_candidate_vecs = torch.cat((bias_candidate_vecs, time_embedding), dim=-1)
+        bias_candidate_score = self.time_distributed3(bias_candidate_vecs)
+        bias_candidate_score = bias_candidate_score.view(1 + self.config['npratio'])
+
+        user_vec = self.pop_aware_user_encoder([x[4], x[5]])
+        rel_scores = torch.tensordot(user_vec, candidate_vecs, dims = -1)
+
+        ctrs = x[1].view(1 + self.config['npratio'], 1)
+        ctrs = self.scaler(ctrs)
+        bias_ctr_score = ctrs.view(1 + self.config['npratio'])
+
+        user_activity = self.activity_gater(user_vec)
+
+        # adding up scores
+        scores = []
+        if self.model_config['rel']:
+            if self.model_config['activity']:
+                rel_scores = (lambda x:2*x[0]*x[1]) ([rel_scores, user_activity])
+            scores.append(rel_scores)
+        if self.model_config['content']:
+            if self.model_config['activity']:
+                bias_candidate_score = (lambda x:2*x[0]*(1-x[1]))([bias_candidate_score, user_activity])
+            scores.append(bias_candidate_score)
+        if self.model_config['ctr']:
+            if self.model_config['activity']:
+                bias_ctr_score = (lambda x:2*x[0]*(1-x[1]))([bias_ctr_score, user_activity])
+            scores.append(bias_ctr_score)
+
+        if len(scores)>1:
+            scores = torch.sum(scores, dim = 0)
+        else:
+            scores = scores[0] # squeeze?
+        
+        logits = self.softmax(scores)
+        return logits
 
 
 def create_pe_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix):
 
-    Pop_aware_user_encoder = Popularity_aware_user_encoder(config, model_config, News, word_embedding_matrix, entity_embedding_matrix)
-    
-    clicked_input = Input(shape=(max_clicked_news, news_input_length,), dtype='int32')
-    clicked_ctr  = Input(shape=(max_clicked_news,),dtype='int32')
+    model = PE_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix)
+    # use these params when training model. no 'compile' in torch
+    # model.compile(loss=['categorical_crossentropy'],
+    #               optimizer=Adam(lr=0.0001), 
+    #               metrics=['acc'])
 
-    candidates = keras.Input((1+config['npratio'],news_input_length,), dtype='int32')
-    candidates_ctr = keras.Input((1+config['npratio'],), dtype='float32')
-    candidates_rece_emb_index = keras.Input((1+config['npratio'],), dtype='int32')
+    user_encoder = model.pop_aware_user_encoder
+    news_encoder = model.news_encoder
+    bias_news_encoder = model.bias_news_encoder
+    bias_content_scorer = model.bias_scorer
+    scaler = model.scaler
+    time_embedding_layer = model.time_embedding_layer
+    activity_gater = model.activity_gater
 
-    if model_config['rece_emb']:
-        bias_content_vec = Input(shape=(500,))
-        vec1 = keras.layers.Lambda(lambda x:x[:,:400])(bias_content_vec)
-        vec2 = keras.layers.Lambda(lambda x:x[:,400:])(bias_content_vec)
-        
-        vec1 = Dense(256,activation='tanh')(vec1)
-        vec1 = Dense(256,activation='tanh')(vec1)
-        vec1 = Dense(128,)(vec1)
-        bias_content_score = Dense(1,use_bias=False)(vec1)
-        
-        vec2 = Dense(64,activation='tanh')(vec2)
-        vec2 = Dense(64,activation='tanh')(vec2)
-        bias_recency_score = Dense(1,use_bias=False)(vec2)
-        
-        gate = Dense(128,activation='tanh')(bias_content_vec)
-        gate = Dense(64,activation='tanh')(gate)
-        gate = Dense(1,activation='sigmoid')(gate)
-        
-        bias_content_score = keras.layers.Lambda(lambda x: (1-x[0])*x[1]+x[0]*x[2] )([gate,bias_content_score,bias_recency_score])
-    
-        bias_content_scorer = Model(bias_content_vec,bias_content_score)
-        
-    else:
-        bias_content_vec = Input(shape=(400,))
-        vec = Dense(256,activation='tanh')(bias_content_vec)
-        vec = Dense(256,activation='tanh')(vec)
-        vec = Dense(128,)(vec)
-        bias_content_score = Dense(1,use_bias=False)(vec)
-        bias_content_scorer = Model(bias_content_vec,bias_content_score)
-    
-    time_embedding_layer = Embedding(1500, 100,trainable=True)
-    time_embedding = time_embedding_layer(candidates_rece_emb_index)
-    
-    candidate_vecs = TimeDistributed(news_encoder)(candidates)
-    bias_candidate_vecs = TimeDistributed(bias_news_encoder)(candidates)
-    if model_config['rece_emb']:
-        bias_candidate_vecs = keras.layers.Concatenate(axis=-1)([bias_candidate_vecs,time_embedding])
-    bias_candidate_score = TimeDistributed(bias_content_scorer)(bias_candidate_vecs)
-    bias_candidate_score = keras.layers.Reshape((1+config['npratio'],))(bias_candidate_score)
-    
-    rel_scores = keras.layers.Dot(axes=-1)([user_vec,candidate_vecs])
-    
-    scaler =  Dense(1,use_bias=False,kernel_initializer=keras.initializers.Constant(value=19))
-    ctrs = keras.layers.Reshape((1+config['npratio'],1))(candidates_ctr)
-    ctrs = scaler(ctrs)
-    bias_ctr_score = keras.layers.Reshape((1+config['npratio'],))(ctrs)
-    
-    user_activity_input = keras.layers.Input((1,),dtype='int32')
-    
-    user_vec_input = keras.layers.Input((400,),)
-    activity_gate = Dense(128,activation='tanh')(user_vec_input)
-    activity_gate = Dense(64,activation='tanh')(user_vec_input)
-    activity_gate = Dense(1,activation='sigmoid')(activity_gate)
-    activity_gate = keras.layers.Reshape((1,))(activity_gate)
-    activity_gater = Model(user_vec_input,activity_gate)
-    
-    
-    user_activtiy = activity_gater(user_vec)
-    
-    scores = []
-    if model_config['rel']:
-        if model_config['activity']:
-            print(user_activtiy.shape)
-            print(rel_scores.shape)
-            rel_scores = keras.layers.Lambda(lambda x:2*x[0]*x[1])([rel_scores,user_activtiy])
-            print(rel_scores.shape)
+    return model,user_encoder,news_encoder,bias_news_encoder,bias_content_scorer,scaler,time_embedding_layer,activity_gater
 
-        scores.append(rel_scores)
-    if model_config['content']:
-        if model_config['activity']:
-            bias_candidate_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_candidate_score,user_activtiy])
-        scores.append(bias_candidate_score)
-    if model_config['ctr']:
-        if model_config['activity']:
-            bias_ctr_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_ctr_score,user_activtiy])
-        scores.append(bias_ctr_score)
-
-
-
-    if len(scores)>1:
-        scores = keras.layers.Add()(scores)
-    else:
-        scores = scores[0]
-    logits = keras.layers.Activation(keras.activations.softmax,name = 'recommend')(scores)
-
-    model = Model([candidates,candidates_ctr,candidates_rece_emb_index,user_activity_input,clicked_input,clicked_ctr], [logits])
-
-
-    model.compile(loss=['categorical_crossentropy'],
-                  optimizer=Adam(lr=0.0001), 
-                  metrics=['acc'])
-
-    user_encoder = Model([clicked_input,clicked_ctr],user_vec)
     
