@@ -103,7 +103,7 @@ class Doc_encoder(nn.Module):
             # d_et = PositionEmbedding(title_length,300)(d_et) keras.layers.PositionEmbedding
             # x = PositionEmbedding(self.tit)
             # x = self.attention(x, x, x)
-            ...
+            ... # TODO left open since not used?
         
         x = self.dropout(x)
         x = self.attentivePool(x)
