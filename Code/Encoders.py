@@ -197,14 +197,14 @@ class Vert_encoder(nn.Module):
 #     return model
 
 class News_encoder(nn.Module):
-    def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix):
+    def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix):
         super().__init__()
         self.config = config
         self.vert_num = vert_num
         self.subvert_num = subvert_num
         self.word_num = word_num
         self.word_embedding_matrix = word_embedding_matrix
-        self.entity_embedding_matrix = entity_embedding_matrix
+        # self.entity_embedding_matrix = entity_embedding_matrix
         self.LengthTable = {'title':config['title_length'],
                    'body':config['body_length'],
                    'vert':1,'subvert':1,
@@ -216,7 +216,7 @@ class News_encoder(nn.Module):
             self.input_length += self.LengthTable[v]
         
         self.word_embedding_layer = nn.Embedding(self.word_num + 1, word_embedding_matrix.shape[1], _weight=self.word_embedding_matrix) # keras.layers.embedding TODO Check if weights are a tensor
-        self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1], _freeze = True) #Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
+        # self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1], _freeze = True) #Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
         self.attention = Attention(20,20)
         self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
         
@@ -231,30 +231,30 @@ class News_encoder(nn.Module):
         if 'title' in self.config['attrs']:
             title_input = (lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]]) (x)
             title_encoder = Doc_encoder(self.config, self.LengthTable['title'], self.word_embedding_layer)
-            title_vec = title_encoder(title_input)
+            self.title_vec = title_encoder(title_input)
         
         if 'body' in self.config['attrs']:
             body_input = (lambda xi: xi[:, self.PositionTable['body'][0] : self.PositionTable['body'][1]]) (x)
             body_encoder = Doc_encoder(self.config, self.LengthTable['body'], self.word_embedding_layer)
-            body_vec = body_encoder(body_input)
+            self.body_vec = body_encoder(body_input)
 
         if 'vert' in self.config['attrs']:
             vert_input = (lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]]) (x)
             vert_encoder = Vert_encoder(self.config, self.vert_num)
-            vert_vec = vert_encoder(vert_input)
+            self.vert_vec = vert_encoder(vert_input)
         
         if 'subvert' in self.config['attrs']:
             subvert_input = (lambda xi: xi[:, self.PositionTable['subvert'][0] : self.PositionTable['subvert'][1]]) (x)
             subvert_encoder = Vert_encoder(self.config, self.subvert_num)
-            subvert_vec = subvert_encoder(subvert_input)
+            self.subvert_vec = subvert_encoder(subvert_input)
         
-        if 'entity' in self.config['attrs']:
-            entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]]) (x)
-            entity_emb = self.entity_embedding_layer(entity_input)
-            entity_vecs = self.attention(entity_emb,entity_emb,entity_emb)
-            entity_vec = self.attentive_pool(entity_vecs)
+        # if 'entity' in self.config['attrs']:
+        #     entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]]) (x)
+        #     entity_emb = self.entity_embedding_layer(entity_input)
+        #     entity_vecs = self.attention(entity_emb,entity_emb,entity_emb)
+        #     self.entity_vec = self.attentive_pool(entity_vecs)
 
-        vec_Table = {'title':title_vec,'body':body_vec,'vert':vert_vec,'subvert':subvert_vec,'entity':entity_vec}
+        vec_Table = {'title':self.title_vec,'body':self.body_vec,'vert':self.vert_vec,'subvert':self.subvert_vec,'entity':self.entity_vec}
         feature = []
         for attr in self.config['attrs']:
             feature.append(vec_Table[attr])
@@ -362,14 +362,14 @@ class News_encoder(nn.Module):
 #     return model
 
 class News_encoder_co1(nn.Module):
-    def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix):
+    def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix):
         super().__init__()
         self.config = config
         self.vert_num = vert_num
         self.subvert_num = subvert_num
         self.word_num = word_num
         self.word_embedding_matrix = word_embedding_matrix
-        self.entity_embedding_matrix = entity_embedding_matrix
+        # self.entity_embedding_matrix = entity_embedding_matrix
         self.LengthTable = {'title':config['title_length'],
                    'vert':1,'subvert':1,
                    'entity':config['max_entity_num']}
@@ -381,7 +381,7 @@ class News_encoder_co1(nn.Module):
         
         self.word_embedding_layer = nn.Embedding(self.word_num+1, self.word_embedding_matrix.shape[1], _weight=self.word_embedding_matrix) # keras.layers.embedding
         self.vert_embedding_layer = nn.Embedding(self.vert_num + 1, 200) # Embedding(vert_num+1, 200,trainable=True) 
-        self.entity_embedding_layer = nn.Embedding(self.entity_embedding_matrix.shape[0], self.entity_embedding_matrix.shape[1]) # Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=True)
+        # self.entity_embedding_layer = nn.Embedding(self.entity_embedding_matrix.shape[0], self.entity_embedding_matrix.shape[1]) # Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=True)
         self.attention = Attention(20,20)
         self.attention2 = Attention(5,40)
         self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
@@ -408,25 +408,25 @@ class News_encoder_co1(nn.Module):
         title_emb = self.word_embedding_layer(title_input)
         title_emb = self.dropout(title_emb)
 
-        entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]])  (x)
-        entity_emb = self.entity_embedding_layer(entity_input)
+        # entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]])  (x)
+        # entity_emb = self.entity_embedding_layer(entity_input)
 
-        title_co_emb = self.attention2(title_emb,entity_emb,entity_emb)
-        entity_co_emb = self.attention2(entity_emb,title_emb,title_emb)
+        # title_co_emb = self.attention2(title_emb,entity_emb,entity_emb)
+        # entity_co_emb = self.attention2(entity_emb,title_emb,title_emb)
         
         title_vecs = self.attention(title_emb, title_emb, title_emb)
-        title_vecs = torch.cat((title_vecs, title_co_emb), dim = -1)
+        # title_vecs = torch.cat((title_vecs, title_co_emb), dim = -1)
         title_vecs = self.fc1(title_vecs)
         title_vecs = self.dropout(title_vecs)
         title_vec = self.attentive_pool2(title_vecs)
 
-        entity_vecs = self.attention(entity_emb, entity_emb, entity_emb)
-        entity_vecs = torch.cat((entity_vecs, entity_co_emb), dim = -1)
-        entity_vecs = self.fc2(entity_vecs)
-        entity_vecs = self.dropout(entity_vecs)
-        entity_vec = self.attentive_pool(entity_vecs)
+        # entity_vecs = self.attention(entity_emb, entity_emb, entity_emb)
+        # entity_vecs = torch.cat((entity_vecs, entity_co_emb), dim = -1)
+        # entity_vecs = self.fc2(entity_vecs)
+        # entity_vecs = self.dropout(entity_vecs)
+        # entity_vec = self.attentive_pool(entity_vecs)
 
-        feature = [title_vec, entity_vec, vert_vec]
+        feature = [title_vec, vert_vec]
 
         news_vec = torch.cat(feature, dim = -1)
         news_vec = self.fc3(news_vec)
@@ -810,22 +810,18 @@ class Multiply(nn.Module):
 
     
 class PE_model(nn.Module):
-    def __init__(self, config, model_config, News, word_embedding_matrix, entity_embedding_matrix):
+    def __init__(self, config, model_config, News, word_embedding_matrix):
         super().__init__()
         self.config = config
         self.model_config = model_config
         self.News = News
         self.word_emb_mat = word_embedding_matrix
-        self.entity_emb_mat = entity_embedding_matrix
+        # self.entity_emb_mat = entity_embedding_matrix
 
-        if model_config['news_encoder'] == 0:
-            self.news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
-            self.bias_news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat) 
+        self.news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat)
+        self.bias_news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat) 
 
-        elif model_config['news_encoder'] == 1:
-            self.news_encoder = News_encoder_co1(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
-            self.bias_news_encoder = News_encoder_co1(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
-
+        
         self.pop_aware_user_encoder = Popularity_aware_user_encoder(self.config, self.model_config, self.news_encoder)
         self.bias_scorer = Bias_content_scorer(self.config, self.model_config)
         self.activity_gater = Activity_gater()
@@ -889,9 +885,9 @@ class PE_model(nn.Module):
         return logits
 
 
-def create_pe_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix):
+def create_pe_model(config, model_config, News, word_embedding_matrix):
 
-    model = PE_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix)
+    model = PE_model(config, model_config, News, word_embedding_matrix)
     # use these params when training model. no 'compile' in torch
     # model.compile(loss=['categorical_crossentropy'],
     #               optimizer=Adam(lr=0.0001), 
