@@ -154,7 +154,7 @@ class NewsContent():
         config = self.config
         news_index = self.news_index
         max_entity_num = config['max_entity_num']
-        KG_root_path = config['KG_root_path']
+        KG_root_path = config['d']
 
         with open(os.path.join(KG_root_path,'entity2id.txt')) as f:
             lines = f.readlines()
@@ -209,7 +209,9 @@ class NewsContent():
                 eid = entities[ri[j]][-1]
                 news_entity_index[index,j] = retain_entities[eid]
 
-        self.entity_embedding = entity_embedding
+        self.entity_embedding = entity_embedding # used -> entity_embedding_matrix
+
+        # not used?
         self.news_entity_index = news_entity_index
         self.news_entity = news_entity
         self.retain_entities = retain_entities
