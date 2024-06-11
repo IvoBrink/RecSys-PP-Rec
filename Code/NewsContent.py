@@ -149,7 +149,8 @@ class NewsContent():
         self.vert = news_vert
         self.subvert = news_subvert
         self.body = news_body
-        
+
+    #FIXME: This function is completely useless, we do not use entities?
     def load_entitiy(self,):
         config = self.config
         news_index = self.news_index
