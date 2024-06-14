@@ -8,9 +8,9 @@ class NewsContent():
         self.config = config
         self.read_news()
         self.get_doc_input()
-        self.load_entitiy()
+        # self.load_entitiy()
         self.load_ctr()
-        self.load_publish_time()
+        # self.load_publish_time()
 
     def fetch_news(self,docids,):
         title = None
@@ -45,10 +45,11 @@ class NewsContent():
         news_index={}
         index=1
         word_dict={}
-        with open(self.config['data_root_path']+'/docs.tsv') as f:
+        with open(self.config['data_root_path']+'/docs.tsv', encoding="utf8") as f:
             lines=f.readlines()
         for line in lines:
             splited = line.strip('\n').split('\t')
+            # print(splited)
             doc_id,vert,subvert,title= splited[0:4]
             if len(splited)>4:
                 body = splited[-1]
