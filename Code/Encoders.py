@@ -671,18 +671,18 @@ class TimeDistributed(nn.Module):
 #         if model_config['activity']:
 #             print(user_activtiy.shape)
 #             print(rel_scores.shape)
-#             rel_scores = keras.layers.Lambda(lambda x:2*x[0]*x[1])([rel_scores,user_activtiy])
-#             print(rel_scores.shape)
+    #         rel_scores = keras.layers.Lambda(lambda x:2*x[0]*x[1])([rel_scores,user_activtiy])
+    #         print(rel_scores.shape)
 
-#         scores.append(rel_scores)
-#     if model_config['content']:
-#         if model_config['activity']:
-#             bias_candidate_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_candidate_score,user_activtiy])
-#         scores.append(bias_candidate_score)
-#     if model_config['ctr']:
-#         if model_config['activity']:
-#             bias_ctr_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_ctr_score,user_activtiy])
-#         scores.append(bias_ctr_score)
+    #     scores.append(rel_scores)
+    # if model_config['content']:
+    #     if model_config['activity']:
+    #         bias_candidate_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_candidate_score,user_activtiy])
+    #     scores.append(bias_candidate_score)
+    # if model_config['ctr']:
+    #     if model_config['activity']:
+    #         bias_ctr_score = keras.layers.Lambda(lambda x:2*x[0]*(1-x[1]))([bias_ctr_score,user_activtiy])
+    #     scores.append(bias_ctr_score)
 
 #     if len(scores)>1:
 #         scores = keras.layers.Add()(scores)
@@ -718,7 +718,7 @@ class Popularity_aware_user_encoder(nn.Module):
         self.dropout = nn.Dropout(0.2)
 
     def forward(self, x):
-        # [cliked_input, clicked_ctr]
+        # [cliked_input, clicked_ctr] clicked_ctr -> label
         user_vecs = self.timeDistributed(x[0])
         user_vecs = self.MHSA(user_vecs, user_vecs, user_vecs)
         popularity_embedding = self.popularity_embedding_layer(x[1])
@@ -867,15 +867,15 @@ class PE_model(nn.Module):
 
         # adding up scores
         scores = []
-        if self.model_config['rel']:
+        if self.model_config['rel']: # user history + news  
             if self.model_config['activity']:
                 rel_scores = (lambda x:2*x[0]*x[1]) ([rel_scores, user_activity])
             scores.append(rel_scores)
-        if self.model_config['content']:
+        if self.model_config['content']: # news attributes + recency
             if self.model_config['activity']:
                 bias_candidate_score = (lambda x:2*x[0]*(1-x[1]))([bias_candidate_score, user_activity])
             scores.append(bias_candidate_score)
-        if self.model_config['ctr']:
+        if self.model_config['ctr']: # ctr 
             if self.model_config['activity']:
                 bias_ctr_score = (lambda x:2*x[0]*(1-x[1]))([bias_ctr_score, user_activity])
             scores.append(bias_ctr_score)

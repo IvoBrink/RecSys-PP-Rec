@@ -3,6 +3,18 @@ from utils import *
 import os
 import json
 
+
+# def trans2tsp(date):
+#     return int(datetime.strptime(date, '%m/%d/%Y %I:%M:%S %p').timestamp())
+
+# oldest articles = 2000-10-02 15:10:00
+anchor = trans2tsp('10/10/2019 11:59:59 PM')
+def parse_time_bucket(date):
+    tsp = trans2tsp(date)
+    tsp = tsp - anchor
+    tsp = tsp//3600
+    return tsp
+
 class NewsContent():
     def __init__(self,config,):
         self.config = config
@@ -10,7 +22,7 @@ class NewsContent():
         self.get_doc_input()
         # self.load_entitiy()
         self.load_ctr()
-        # self.load_publish_time()
+        self.load_publish_time()
 
     def fetch_news(self,docids,):
         title = None
@@ -229,14 +241,17 @@ class NewsContent():
         news_stat_click = np.zeros((len(news_index)+1,num))
         mx = -1
         for i in range(len(lines)):
+            print(lines[i].strip('\n').split('\t'))
             newsid, bucket, click, imp = lines[i].strip('\n').split('\t')
             if not newsid in news_index:
+                print('oof')
                 continue
             nindex = news_index[newsid]
             bucket = int(bucket)
             click = int(click)
             imp = int(imp)
             news_stat_imp[nindex,bucket] += imp
+            print(news_stat_imp[nindex,bucket])
             news_stat_click[nindex,bucket] += click
             if bucket>mx:
                 mx = bucket
@@ -262,13 +277,13 @@ class NewsContent():
             #tsp = trans2tsp(tsp)
             bucket = parse_time_bucket(tsp)
             news_publish_bucket2[nindex,] = bucket
-
-        index = news_publish_bucket2<0
+        index = news_publish_bucket2 < 0
         news_publish_bucket2[index] = 0
         self.news_publish_bucket2 = news_publish_bucket2
 
         news_publish_bucket = np.zeros((len(news_index)+1,),dtype='int32')
         news_stat_imp = self.news_stat_imp
+        # print(news_stat_imp.shape[0])
         for i in range(1,news_stat_imp.shape[0]):
             start = (news_stat_imp[i]>0).argmax()
             news_publish_bucket[i,] = start
