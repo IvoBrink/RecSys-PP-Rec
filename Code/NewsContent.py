@@ -241,17 +241,14 @@ class NewsContent():
         news_stat_click = np.zeros((len(news_index)+1,num))
         mx = -1
         for i in range(len(lines)):
-            print(lines[i].strip('\n').split('\t'))
             newsid, bucket, click, imp = lines[i].strip('\n').split('\t')
             if not newsid in news_index:
-                print('oof')
                 continue
             nindex = news_index[newsid]
             bucket = int(bucket)
             click = int(click)
             imp = int(imp)
             news_stat_imp[nindex,bucket] += imp
-            print(news_stat_imp[nindex,bucket])
             news_stat_click[nindex,bucket] += click
             if bucket>mx:
                 mx = bucket
