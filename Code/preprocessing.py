@@ -35,10 +35,10 @@ def get_train_input(session,news_index,config):
     for sess_id in range(sess_all.shape[0]):
         pos = sess_pos[sess_id]
         negs = sess_neg[sess_id]
-        sess_all[sess_id,0] = news_index[pos[:-2]]
+        sess_all[sess_id,0] = news_index[pos]
         index = 1
         for neg in negs:
-            sess_all[sess_id,index] = news_index[neg[:-2]]
+            sess_all[sess_id,index] = news_index[neg]
             index+=1
         #index = np.random.randint(1+npratio)
         label[sess_id,0]=1
@@ -57,11 +57,11 @@ def get_test_input(session,news_index):
                 'tsp':tsp}
         userid.append(sess_id)
         for i in range(len(poss)):
-            docid = news_index[poss[i][:-2]]
+            docid = news_index[poss[i]]
             imp['docs'].append(docid)
             imp['labels'].append(1)
         for i in range(len(negs)):
-            docid = news_index[negs[i][:-2]]
+            docid = news_index[negs[i]]
             imp['docs'].append(docid)
             imp['labels'].append(0)
         Impressions.append(imp)
