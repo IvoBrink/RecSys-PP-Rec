@@ -285,3 +285,7 @@ class NewsContent():
             start = (news_stat_imp[i]>0).argmax()
             news_publish_bucket[i,] = start
         self.news_publish_bucket = news_publish_bucket
+
+    def get_ctr(self, did, time):
+        ctr = np.sum(self.news_stat_click[did][time-10:time]) / sum(self.news_stat_imp[did][time-10:time])
+        return ctr
