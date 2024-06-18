@@ -89,8 +89,10 @@ class Doc_encoder(nn.Module):
 
 
     def forward(self, x):
+        print(x.shape)
         x = self.embedding_layer(x) 
         x = self.dropout(x)
+        print(x.shape)
 
         if self.news_encoder=='CNN':
             x = self.conv(x)
@@ -104,6 +106,7 @@ class Doc_encoder(nn.Module):
             # x = PositionEmbedding(self.tit)
             # x = self.attention(x, x, x)
             ... # TODO left open since not used?
+        print(x.shape)
         
         x = self.dropout(x)
         x = self.attentivePool(x)
@@ -215,10 +218,12 @@ class News_encoder(nn.Module):
             self.PositionTable[v] = (self.input_length, self.input_length + self.LengthTable[v])
             self.input_length += self.LengthTable[v]
         
-        self.word_embedding_layer = nn.Embedding(self.word_num + 1, word_embedding_matrix.shape[1], _weight=self.word_embedding_matrix) # keras.layers.embedding TODO Check if weights are a tensor
-        self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1], _freeze = True) #Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
-        self.attention = Attention(20,20)
-        self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
+        self.word_embedding_layer = nn.Embedding(self.word_num + 1, word_embedding_matrix.shape[1]) # keras.layers.embedding TODO Check if weights are a tensor
+        with torch.no_grad():
+            self.word_embedding_layer.weight = nn.Parameter(torch.from_numpy(word_embedding_matrix).float())
+        # self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1], _freeze = True) #Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
+        # self.attention = Attention(20,20)
+        # self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
         
         self.title_vec = None
         self.body_vec = None
@@ -228,26 +233,30 @@ class News_encoder(nn.Module):
 
     def forward(self, x):
 
+        print('a')
         if 'title' in self.config['attrs']:
             title_input = (lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]]) (x)
+            print(title_input.shape)
+            title_input = torch.unsqueeze(title_input, 1)
+            print(title_input.shape)
             title_encoder = Doc_encoder(self.config, self.LengthTable['title'], self.word_embedding_layer)
             title_vec = title_encoder(title_input)
-        
+        print('a')
         if 'body' in self.config['attrs']:
             body_input = (lambda xi: xi[:, self.PositionTable['body'][0] : self.PositionTable['body'][1]]) (x)
             body_encoder = Doc_encoder(self.config, self.LengthTable['body'], self.word_embedding_layer)
             body_vec = body_encoder(body_input)
-
+        print('a')
         if 'vert' in self.config['attrs']:
             vert_input = (lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]]) (x)
             vert_encoder = Vert_encoder(self.config, self.vert_num)
             vert_vec = vert_encoder(vert_input)
-        
+        print('a')
         if 'subvert' in self.config['attrs']:
             subvert_input = (lambda xi: xi[:, self.PositionTable['subvert'][0] : self.PositionTable['subvert'][1]]) (x)
             subvert_encoder = Vert_encoder(self.config, self.subvert_num)
             subvert_vec = subvert_encoder(subvert_input)
-        
+        print('a')
         if 'entity' in self.config['attrs']:
             entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]]) (x)
             entity_emb = self.entity_embedding_layer(entity_input)
@@ -707,8 +716,8 @@ class Popularity_aware_user_encoder(nn.Module):
         self.model_config = model_config
         self.max_clicked_news = config['max_clicked_news']
         self.news_encoder = news_encoder
-        
-        self.news_input_length = int(self.news_encoder.input.shape[1]) #  does this work like this in torch?
+        # print(news_encoder.LengthTable)
+        # self.news_input_length = int(self.news_encoder.input.shape[1]) #  does this work like this in torch?
 
         self.timeDistributed = TimeDistributed(self.news_encoder)
         self.popularity_embedding_layer = nn.Embedding(200,400) # Embedding(200, 400,trainable=True)
@@ -817,7 +826,7 @@ class PE_model(nn.Module):
         self.News = News
         self.word_emb_mat = word_embedding_matrix
         self.entity_emb_mat = entity_embedding_matrix
-
+        # print(model_config)
         if model_config['news_encoder'] == 0:
             self.news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
             self.bias_news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat) 

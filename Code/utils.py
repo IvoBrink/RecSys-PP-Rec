@@ -20,11 +20,11 @@ def word_tokenize(sent):
 def trans2tsp(timestr):
     return int(time.mktime(datetime.strptime(timestr, '%m/%d/%Y %I:%M:%S %p').timetuple()))
 
-anchor = trans2tsp('10/10/2019 11:59:59 PM')
+anchor = trans2tsp('05/17/2023 11:59:59 PM')
 def parse_time_bucket(date):
     tsp = trans2tsp(date)
     tsp = tsp - anchor
-    tsp = tsp//60
+    tsp = tsp//(600 )
     return tsp
 
 def dcg_score(y_true, y_score, k=10):

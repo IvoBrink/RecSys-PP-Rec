@@ -11,17 +11,17 @@ from datetime import datetime
 
 # assuming [userid, ???, [(did, time), ...], [[pos1, ...], [negs1,...], [bucket1, ]]]
 
-def trans2tsp(date):
-    return int(datetime.strptime(date, '%m/%d/%Y %I:%M:%S %p').timestamp())
+# def trans2tsp(date):
+#     return int(datetime.strptime(date, '%m/%d/%Y %I:%M:%S %p').timestamp())
 
 ######################################################################################################################################################
 
-anchor = trans2tsp('10/10/2019 11:59:59 PM')
-def parse_time_bucket(date):
-    tsp = trans2tsp(date)
-    tsp = tsp - anchor
-    tsp = tsp//3600
-    return tsp
+# anchor = trans2tsp('10/10/2019 11:59:59 PM')
+# def parse_time_bucket(date):
+#     tsp = trans2tsp(date)
+#     tsp = tsp - anchor
+#     tsp = tsp//3600
+#     return tsp
 
 def newsample(nnn,ratio):
     if ratio >len(nnn):

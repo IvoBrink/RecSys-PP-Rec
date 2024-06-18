@@ -8,12 +8,12 @@ import json
 #     return int(datetime.strptime(date, '%m/%d/%Y %I:%M:%S %p').timestamp())
 
 # oldest articles = 2000-10-02 15:10:00
-anchor = trans2tsp('10/10/2019 11:59:59 PM')
-def parse_time_bucket(date):
-    tsp = trans2tsp(date)
-    tsp = tsp - anchor
-    tsp = tsp//3600
-    return tsp
+# anchor = trans2tsp('04/16/2023 11:59:59 PM')
+# def parse_time_bucket(date):
+#     tsp = trans2tsp(date)
+#     tsp = tsp - anchor
+#     tsp = tsp//3600
+#     return tsp
 
 class NewsContent():
     def __init__(self,config,):
@@ -45,6 +45,7 @@ class NewsContent():
             entity = self.news_entity_index[docids]
             
         FeatureTable = {'title':title,'vert':vert,'subvert':subvert,'body':body,'entity':entity}
+        # print(FeatureTable)
         feature = [FeatureTable[v] for v in config['attrs']]
         feature = np.concatenate(feature, axis=-1)
         return feature
@@ -62,9 +63,9 @@ class NewsContent():
         for line in lines:
             splited = line.strip('\n').split('\t')
             # print(splited)
-            doc_id,vert,subvert,title= splited[0:4]
+            doc_id,title,vert,subvert= splited[0:4]
             if len(splited)>4:
-                body = splited[-1]
+                body = splited[4]
             else:
                 body = ''
 
@@ -83,6 +84,7 @@ class NewsContent():
 
             if 'body' in config['attrs']:
                 body = body.lower()
+                
                 body = word_tokenize(body)
                 for word in body:
                     if not(word in word_dict):
@@ -248,8 +250,8 @@ class NewsContent():
             bucket = int(bucket)
             click = int(click)
             imp = int(imp)
-            news_stat_imp[nindex,bucket] += imp
-            news_stat_click[nindex,bucket] += click
+            news_stat_imp[nindex, bucket] += imp
+            news_stat_click[nindex, bucket] += click
             if bucket>mx:
                 mx = bucket
 
@@ -270,7 +272,7 @@ class NewsContent():
                 continue
             nindex = news_index[nid]
             if tsp=='':
-                tsp = '10/10/2019 11:59:59 PM'
+                tsp = '05/17/2023 11:59:59 PM'
             #tsp = trans2tsp(tsp)
             bucket = parse_time_bucket(tsp)
             news_publish_bucket2[nindex,] = bucket
@@ -287,5 +289,12 @@ class NewsContent():
         self.news_publish_bucket = news_publish_bucket
 
     def get_ctr(self, did, time):
-        ctr = np.sum(self.news_stat_click[did][time-10:time]) / sum(self.news_stat_imp[did][time-10:time])
+        if(did==0):
+            return 0
+        # print(did, time)
+        ctr = np.sum(self.news_stat_click[did][time-20:time]) / (np.sum(self.news_stat_imp[did][time-20:time] + np.finfo(float).eps))
         return ctr
+    
+    # def get_candidate(self, idx):
+    #     candidate = self.title[idx] + self.body[idx] + self.vert[idx]
+    #     return candidate

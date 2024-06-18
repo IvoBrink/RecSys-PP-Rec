@@ -92,7 +92,7 @@ from torch.nn import init
 
 class Attention(nn.Module):
     def __init__(self, nb_head, size_per_head):
-        super(Attention, self).__init__()
+        super().__init__()
         self.nb_head = nb_head
         self.size_per_head = size_per_head
         self.output_dim = nb_head * size_per_head
@@ -148,17 +148,21 @@ class Attention(nn.Module):
 
 class AttentivePooling(nn.Module):
     def __init__(self, dim1, dim2):
-        super(AttentivePooling, self).__init__()
+        super().__init__()
+        
+        print(dim1, dim2)
         self.dropout = nn.Dropout(0.2)
-        self.dense_tanh = nn.Linear(dim2, 200)
+        self.dense_tanh = nn.Linear(dim1, 200)
         self.dense_flat = nn.Linear(200, 1)
         
     def forward(self, x):
         x = self.dropout(x)
         att = torch.tanh(self.dense_tanh(x))
+        print(att.shape, "att")
         att = self.dense_flat(att).squeeze(-1)
         att = F.softmax(att, dim=-1)
         att = att.unsqueeze(-1)
+        print(att.shape, "att")
         output = torch.sum(x * att, dim=1)
         return output
 
@@ -175,7 +179,7 @@ class AttentivePooling(nn.Module):
 
 class AttentivePoolingQKY(nn.Module):
     def __init__(self, dim1, dim2, dim3):
-        super(AttentivePoolingQKY, self).__init__()
+        super().__init__()
         self.dropout = nn.Dropout(0.2)
         self.dense_tanh = nn.Linear(dim2, 200)
         self.dense_flat = nn.Linear(200, 1)
@@ -204,7 +208,7 @@ class AttentivePoolingQKY(nn.Module):
 
 class AttentivePoolingBias(nn.Module):
     def __init__(self, dim1, dim2, dim3):
-        super(AttentivePoolingBias, self).__init__()
+        super().__init__()
         self.dropout = nn.Dropout(0.2)
         self.dense_tanh = nn.Linear(dim2, 200)
         self.dense_flat = nn.Linear(200, 1)
