@@ -64,12 +64,17 @@ from torch.nn import init
 #             Q_len,V_len = None,None
 #         elif len(x) == 5:
 #             Q_seq,K_seq,V_seq,Q_len,V_len = x
+
+
 #         Q_seq = K.dot(Q_seq, self.WQ)
 #         Q_seq = K.reshape(Q_seq, (-1, K.shape(Q_seq)[1], self.nb_head, self.size_per_head))
 #         Q_seq = K.permute_dimensions(Q_seq, (0,2,1,3))
+
+
 #         K_seq = K.dot(K_seq, self.WK)
 #         K_seq = K.reshape(K_seq, (-1, K.shape(K_seq)[1], self.nb_head, self.size_per_head))
 #         K_seq = K.permute_dimensions(K_seq, (0,2,1,3))
+
 #         V_seq = K.dot(V_seq, self.WV)
 #         V_seq = K.reshape(V_seq, (-1, K.shape(V_seq)[1], self.nb_head, self.size_per_head))
 #         V_seq = K.permute_dimensions(V_seq, (0,2,1,3))
@@ -98,14 +103,15 @@ class Attention(nn.Module):
         self.output_dim = nb_head * size_per_head
         
         # Initialize weights
-        self.WQ = nn.Linear(size_per_head, self.output_dim, bias=False)
-        self.WK = nn.Linear(size_per_head, self.output_dim, bias=False)
-        self.WV = nn.Linear(size_per_head, self.output_dim, bias=False)
+        self.WQ = nn.Linear(self.output_dim, self.output_dim, bias=False)
+        self.WK = nn.Linear(self.output_dim, self.output_dim, bias=False)
+        self.WV = nn.Linear(self.output_dim, self.output_dim, bias=False)
 
     def mask(self, inputs, seq_len, mode='mul'):
         if seq_len is None:
             return inputs
         else:
+            print("working")
             mask = torch.ones_like(inputs)
             for i in range(mask.shape[0]):
                 mask[i, seq_len[i]:] = 0

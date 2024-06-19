@@ -604,7 +604,7 @@ class TimeDistributed(nn.Module):
 #     if model_config['popularity_user_modeling']:
 #         popularity_embedding_layer =  Embedding(200, 400,trainable=True)
 #         popularity_embedding = popularity_embedding_layer(clicked_ctr)
-#         MHSA = Attention(20,20)
+#         MHSA = Attention(20,20)p
 #         user_vecs = MHSA([user_vecs,user_vecs,user_vecs])
 #         #user_vec_query = keras.layers.Add()([user_vecs,popularity_embedding])
 #         user_vec_query = keras.layers.Concatenate(axis=-1)([user_vecs,popularity_embedding])
@@ -729,14 +729,14 @@ class Popularity_aware_user_encoder(nn.Module):
 
     def forward(self, x):
         # [cliked_input, clicked_ctr] clicked_ctr -> label
-        print(x[0].shape)
         user_vecs = self.timeDistributed(x[0])
         user_vecs = self.MHSA(user_vecs, user_vecs, user_vecs)
-        popularity_embedding = self.popularity_embedding_layer(x[1])
+        popularity_embedding = self.popularity_embedding_layer((x[1] * 199).long())
 
         if (self.model_config['popularity_user_modeling']):
             user_vec_query = torch.cat((user_vecs, popularity_embedding), dim = -1) # keras.layers.Concatenate(axis=-1)([user_vecs,popularity_embedding])
-            user_vec = self.attentivePoolQKY(user_vec_query)
+            user_vec = self.attentivePoolQKY(user_vec_query, user_vecs)
+            print(user_vec.shape, "user_vec")
         else:
             user_vecs = self.dropout(user_vecs)
             user_vec = self.attentivePool(user_vecs)
@@ -870,7 +870,13 @@ class PE_model(nn.Module):
         bias_candidate_score = bias_candidate_score.view( -1, 1 + self.config['npratio'])
 
         user_vec = self.pop_aware_user_encoder([x[4], x[5]])
-        rel_scores = torch.tensordot(user_vec, candidate_vecs, dims = -1)
+        rel_scores = torch.zeros(candidate_vecs.shape[0:2])
+        for x in range(len(candidate_vecs)):
+            
+            rel_scores[x] = torch.sum(torch.mul(candidate_vecs[x],user_vec[x]), dim = 1)
+        print(rel_scores)
+
+        # TODO we are here in debugging
 
         ctrs = x[1].view(1 + self.config['npratio'], 1)
         ctrs = self.scaler(ctrs)
