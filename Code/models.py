@@ -150,20 +150,21 @@ class AttentivePooling(nn.Module):
     def __init__(self, dim1, dim2):
         super().__init__()
         
-        print(dim1, dim2)
         self.dropout = nn.Dropout(0.2)
-        self.dense_tanh = nn.Linear(dim1, 200)
+        self.dense_tanh = nn.Linear(dim2, 200)
         self.dense_flat = nn.Linear(200, 1)
         
     def forward(self, x):
+        # print(x.shape, "x shape")
         x = self.dropout(x)
         att = torch.tanh(self.dense_tanh(x))
-        print(att.shape, "att")
+        # print(att.shape, "att")
         att = self.dense_flat(att).squeeze(-1)
         att = F.softmax(att, dim=-1)
         att = att.unsqueeze(-1)
-        print(att.shape, "att")
-        output = torch.sum(x * att, dim=1)
+        # print(att.shape, "att")
+        output = torch.sum(torch.mul(x, att), dim=1)
+        # print(output.shape)
         return output
 
 # def AttentivePoolingQKY(dim1,dim2,dim3):

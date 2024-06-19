@@ -46,8 +46,7 @@ class PositionEmbedding(nn.Module):
 
 # def get_doc_encoder(config,text_length,embedding_layer):
 #     news_encoder = config['news_encoder_name']
-#     # sentence_input = Input(shape=(1,), dtype = 'int32')
-#     sentence_input = torch.empty((text_length,), dtype=torch.int32)
+#     sentence_input = Input(shape=(1,), dtype = 'int32')
 #     embedded_sequences = embedding_layer(sentence_input)
 
 
@@ -55,9 +54,7 @@ class PositionEmbedding(nn.Module):
 #     d_et=F.dropout(embedded_sequences, p= 0.2)
 
 #     if news_encoder=='CNN':
-#         # l_cnnt = Conv1D(400,kernel_size=3,activation='relu')(d_et)
-#         l_cnnt = F.conv1d(d_et, torch.randn(400, text_length, 3))
-#         l_cnnt = F.relu(l_cnnt)
+#         l_cnnt = Conv1D(400,kernel_size=3,activation='relu')(d_et)
         
 #     elif news_encoder=='SelfAtt':
 #         # l_cnnt =Attention(20,20)([d_et,d_et,d_et])
@@ -82,19 +79,18 @@ class Doc_encoder(nn.Module):
         self.embedding_layer = embedding_layer
         self.dropout = nn.Dropout(p=0.2)
         # is it size 1 as in one document?
-        self.conv = nn.Conv1d(1, 400, 3)
+        self.conv = nn.Conv1d(300, 400, kernel_size=3, padding=1)
         self.relu = nn.ReLU()
         self.attention = Attention(20,20)
         self.attentivePool = AttentivePooling(text_length, 400)
 
 
     def forward(self, x):
-        print(x.shape)
         x = self.embedding_layer(x) 
         x = self.dropout(x)
-        print(x.shape)
 
         if self.news_encoder=='CNN':
+            x = torch.permute(x, (0, 2, 1))
             x = self.conv(x)
             x = self.relu(x)
             
@@ -106,7 +102,8 @@ class Doc_encoder(nn.Module):
             # x = PositionEmbedding(self.tit)
             # x = self.attention(x, x, x)
             ... # TODO left open since not used?
-        print(x.shape)
+
+        x = torch.permute(x, (0, 2, 1))
         
         x = self.dropout(x)
         x = self.attentivePool(x)
@@ -126,13 +123,12 @@ class Doc_encoder(nn.Module):
 class Vert_encoder(nn.Module):
     def __init__(self, config, vert_num):
         super().__init__()
-        self.news_encoder = config['news_encoder_name']
         self.embedding_layer = nn.Embedding(vert_num+1, 400) # keras.layers.embedding
         self.dropout = nn.Dropout(p=0.2)
 
     def forward(self, x):
         x = self.embedding_layer(x) 
-        x = x.view(400, -1) #reshape ?
+        # x = x.view(400, -1) #reshape ?
         x = self.dropout(x)
         return x
 
@@ -221,6 +217,8 @@ class News_encoder(nn.Module):
         self.word_embedding_layer = nn.Embedding(self.word_num + 1, word_embedding_matrix.shape[1]) # keras.layers.embedding TODO Check if weights are a tensor
         with torch.no_grad():
             self.word_embedding_layer.weight = nn.Parameter(torch.from_numpy(word_embedding_matrix).float())
+
+        
         # self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1], _freeze = True) #Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
         # self.attention = Attention(20,20)
         # self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
@@ -233,37 +231,34 @@ class News_encoder(nn.Module):
 
     def forward(self, x):
 
-        print('a')
+        
         if 'title' in self.config['attrs']:
             title_input = (lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]]) (x)
-            print(title_input.shape)
-            title_input = torch.unsqueeze(title_input, 1)
-            print(title_input.shape)
             title_encoder = Doc_encoder(self.config, self.LengthTable['title'], self.word_embedding_layer)
             title_vec = title_encoder(title_input)
-        print('a')
+        
         if 'body' in self.config['attrs']:
             body_input = (lambda xi: xi[:, self.PositionTable['body'][0] : self.PositionTable['body'][1]]) (x)
             body_encoder = Doc_encoder(self.config, self.LengthTable['body'], self.word_embedding_layer)
             body_vec = body_encoder(body_input)
-        print('a')
+        
         if 'vert' in self.config['attrs']:
             vert_input = (lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]]) (x)
             vert_encoder = Vert_encoder(self.config, self.vert_num)
             vert_vec = vert_encoder(vert_input)
-        print('a')
+        
         if 'subvert' in self.config['attrs']:
             subvert_input = (lambda xi: xi[:, self.PositionTable['subvert'][0] : self.PositionTable['subvert'][1]]) (x)
             subvert_encoder = Vert_encoder(self.config, self.subvert_num)
             subvert_vec = subvert_encoder(subvert_input)
-        print('a')
+        
         if 'entity' in self.config['attrs']:
             entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]]) (x)
             entity_emb = self.entity_embedding_layer(entity_input)
             entity_vecs = self.attention(entity_emb,entity_emb,entity_emb)
             entity_vec = self.attentive_pool(entity_vecs)
 
-        vec_Table = {'title':title_vec,'body':body_vec,'vert':vert_vec,'subvert':subvert_vec,'entity':entity_vec}
+        vec_Table = {'title':title_vec,'body':body_vec,'vert':vert_vec}
         feature = []
         for attr in self.config['attrs']:
             feature.append(vec_Table[attr])
@@ -271,8 +266,11 @@ class News_encoder(nn.Module):
         if len(feature)==1:
             news_vec = feature[0]
         else:
+            # print(feature)
             for i in range(len(feature)):
-                feature[i] = torch.reshape(feature(i), (1, 400)) #keras.layers.Reshape((1,400))(feature[i])    
+                
+                feature[i] = torch.reshape(feature[i], (-1, 1, 400)) #keras.layers.Reshape((1,400))(feature[i])    
+            
             news_vecs = torch.cat(feature, dim = 1)   # keras.layers.Concatenate(axis=1)(feature)
             news_vec = AttentivePooling(len(self.config['attrs']), 400)(news_vecs)
     
@@ -562,12 +560,15 @@ class TimeDistributed(nn.Module):
 
     def forward(self, x):
 
-        if len(x.size()) <= 2:
+        # print(x.shape, "pre time")
+
+        if len(x.size()) < 2:
             return self.module(x)
 
         # Squash samples and timesteps into a single axis
         x_reshape = x.contiguous().view(-1, x.size(-1))  # (samples * timesteps, input_size)
 
+        # print(x_reshape.shape, "post time")
         y = self.module(x_reshape)
 
         # We have to reshape Y
@@ -728,6 +729,7 @@ class Popularity_aware_user_encoder(nn.Module):
 
     def forward(self, x):
         # [cliked_input, clicked_ctr] clicked_ctr -> label
+        print(x[0].shape)
         user_vecs = self.timeDistributed(x[0])
         user_vecs = self.MHSA(user_vecs, user_vecs, user_vecs)
         popularity_embedding = self.popularity_embedding_layer(x[1])
@@ -769,16 +771,17 @@ class Bias_content_scorer(nn.Module):
 
         if self.model_config['rece_emb']:
             # size 500
-            x = (lambda xi:xi[:, :400]) (x)
-            vec2 = (lambda xi:xi[:, 400:]) (x)
-
-            vec2 = self.tanh(self.fc2_1(vec2))
-            vec2 = self.tanh(self.fc2_2(vec2))
-            bias_recency_score = self.fc2_3(vec2)
+            vec2 = (lambda xi:xi[:, 400:]) (x) # time embedding
 
             gate = self.tanh(self.fc3_1(x))
             gate = self.tanh(self.fc3_2(gate))
-            gate = self.sigmoid(self.fc3_3(gate))
+            gate = self.sigmoid(self.fc3_3(gate)) # weight for recency vs news content
+
+            x = (lambda xi:xi[:, :400]) (x) # news encoding
+            
+            vec2 = self.tanh(self.fc2_1(vec2))
+            vec2 = self.tanh(self.fc2_2(vec2))
+            bias_recency_score = self.fc2_3(vec2)
 
         vec = self.tanh(self.fc1_1(x))
         vec = self.tanh(self.fc1_2(vec))
@@ -786,7 +789,7 @@ class Bias_content_scorer(nn.Module):
         bias_content_score = self.fc1_4(vec)
 
         if self.model_config['rece_emb']:
-            bias_content_score = (lambda x: (1-x[0]) * x[1] + x[0] * x[2])(gate, bias_content_score, bias_recency_score)
+            bias_content_score = (lambda x: (1-x[0]) * x[1] + x[0] * x[2])([gate, bias_content_score, bias_recency_score])
 
         return bias_content_score
     
@@ -856,14 +859,15 @@ class PE_model(nn.Module):
         # 3 user activity
         # 4 clicked input
         # 5 clicked ctr
-        time_embedding = self.time_embedding_layer(x[2])
-        candidate_vecs = self.time_distributed1(x[0])
-        bias_candidate_vecs = self.time_distributed2(x[0])
+        print(x[0].shape)
+        time_embedding = self.time_embedding_layer(x[2]) # shape (2, 100)
+        candidate_vecs = self.time_distributed1(x[0]) # shape (batch, 2, 400)
+        bias_candidate_vecs = self.time_distributed2(x[0]) # ditto
 
         if self.model_config['rece_emb']:
-            bias_candidate_vecs = torch.cat((bias_candidate_vecs, time_embedding), dim=-1)
+            bias_candidate_vecs = torch.cat((bias_candidate_vecs, time_embedding), dim=-1) # shape (batch, 2, 500)
         bias_candidate_score = self.time_distributed3(bias_candidate_vecs)
-        bias_candidate_score = bias_candidate_score.view(1 + self.config['npratio'])
+        bias_candidate_score = bias_candidate_score.view( -1, 1 + self.config['npratio'])
 
         user_vec = self.pop_aware_user_encoder([x[4], x[5]])
         rel_scores = torch.tensordot(user_vec, candidate_vecs, dims = -1)
