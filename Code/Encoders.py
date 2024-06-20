@@ -736,7 +736,6 @@ class Popularity_aware_user_encoder(nn.Module):
         if (self.model_config['popularity_user_modeling']):
             user_vec_query = torch.cat((user_vecs, popularity_embedding), dim = -1) # keras.layers.Concatenate(axis=-1)([user_vecs,popularity_embedding])
             user_vec = self.attentivePoolQKY(user_vec_query, user_vecs)
-            print(user_vec.shape, "user_vec")
         else:
             user_vecs = self.dropout(user_vecs)
             user_vec = self.attentivePool(user_vecs)
@@ -805,9 +804,9 @@ class Activity_gater(nn.Module):
     def forward(self, x):
         #user_vec_input = keras.layers.Input((400,),)
         activity_gate = self.tanh(self.fc1(x)) # Dense(128,activation='tanh')(user_vec_input)
-        activity_gate = self.tanh(self.fc2(x)) # Dense(64,activation='tanh')(user_vec_input) TODO their mistake? same input
+        activity_gate = self.tanh(self.fc2(activity_gate)) # Dense(64,activation='tanh')(user_vec_input) TODO their mistake? same input
         activity_gate = self.sigmoid(self.fc3(activity_gate)) # Dense(1,activation='sigmoid')(activity_gate)
-        activity_gate = activity_gate.view(1,-1) # keras.layers.Reshape((1,))(activity_gate)
+        activity_gate = activity_gate.view(-1,1) # keras.layers.Reshape((1,))(activity_gate)
         return activity_gate #activity_gater = Model(user_vec_input,activity_gate)
     
 class Multiply(nn.Module):
@@ -848,7 +847,7 @@ class PE_model(nn.Module):
         self.time_distributed3 = TimeDistributed(self.bias_scorer)
         # scaler =  Dense(1,use_bias=False,kernel_initializer=keras.initializers.Constant(value=19))
         self.scaler = Multiply(19)
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         # model = Model([candidates,candidates_ctr,candidates_rece_emb_index,user_activity_input,clicked_input,clicked_ctr], [logits])
@@ -859,7 +858,6 @@ class PE_model(nn.Module):
         # 3 user activity
         # 4 clicked input
         # 5 clicked ctr
-        print(x[0].shape)
         time_embedding = self.time_embedding_layer(x[2]) # shape (2, 100)
         candidate_vecs = self.time_distributed1(x[0]) # shape (batch, 2, 400)
         bias_candidate_vecs = self.time_distributed2(x[0]) # ditto
@@ -871,19 +869,17 @@ class PE_model(nn.Module):
 
         user_vec = self.pop_aware_user_encoder([x[4], x[5]])
         rel_scores = torch.zeros(candidate_vecs.shape[0:2])
-        for x in range(len(candidate_vecs)):
+        for i in range(x[0].shape[0]):
             
-            rel_scores[x] = torch.sum(torch.mul(candidate_vecs[x],user_vec[x]), dim = 1)
-        print(rel_scores)
-
-        # TODO we are here in debugging
-
-        ctrs = x[1].view(1 + self.config['npratio'], 1)
+            rel_scores[i] = torch.sum(torch.mul(candidate_vecs[i],user_vec[i]), dim = 1)
+        
+        ctrs = x[1].view(-1, 1)
         ctrs = self.scaler(ctrs)
-        bias_ctr_score = ctrs.view(1 + self.config['npratio'])
+        bias_ctr_score = ctrs.view(-1, 1 + self.config['npratio'])
 
         user_activity = self.activity_gater(user_vec)
 
+        
         # adding up scores
         scores = []
         if self.model_config['rel']: # user history + news  
@@ -900,6 +896,7 @@ class PE_model(nn.Module):
             scores.append(bias_ctr_score)
 
         if len(scores)>1:
+            scores = torch.stack(scores, dim = 0 )
             scores = torch.sum(scores, dim = 0)
         else:
             scores = scores[0] # squeeze?
