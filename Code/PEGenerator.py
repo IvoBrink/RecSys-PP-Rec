@@ -144,6 +144,37 @@ def fetch_ctr_dim3(News, docids, bucket, flag=1):
 #         label = self.label[start:ed]
                 
 #         return ([news_feature,candidate_ctr,rece_emb_index,user_activity,user_feature,click_ctr,],[label])
+# class EbnerdTrainData(Dataset):
+#     def __init__(self, News, User, session, user_id, buckets, labels):
+#         self.News = News
+#         self.User = User
+#         self.session = session
+#         self.buckets = buckets
+#         self.user_id = user_id
+#         self.labels = labels
+#         self.length = len(self.session)
+#         # ?
+#         # self.batch_size = batch_size
+        
+#     def __len__(self):
+#         return self.length
+    
+#     def __getitem__(self, idx):
+#         candidates = torch.IntTensor(self.session[idx])
+#         candidates_data = torch.LongTensor(self.News.fetch_news(candidates))
+#         candidates_ctr = torch.FloatTensor([self.News.get_ctr(x, self.buckets[idx]) for x in candidates])
+#         candidates_rece_emb_index = torch.IntTensor([self.News.news_publish_bucket2[x] for x in candidates])
+#         user_activity_input = 1
+#         clicked_input = torch.IntTensor(self.User.click[self.user_id[idx]])
+#         clicked_input_data = torch.LongTensor(self.News.fetch_news(clicked_input))
+#         # print(clicked_input)
+#         clicked_ctr = torch.FloatTensor([self.News.get_ctr(self.User.click[self.user_id[idx]][i], self.User.click_bucket[self.user_id[idx]][i]) for i in range(len(clicked_input))])
+#         # print(clicked_ctr)
+#         input = [candidates_data,candidates_ctr,candidates_rece_emb_index,user_activity_input,clicked_input_data,clicked_ctr]
+#         # for x in range(len(input)):
+#         #     input[x] = torch.FloatTensor(input[x])
+#         labels = torch.FloatTensor(self.labels[idx])
+#         return input, labels
 
 
 class TrainDataset(Dataset):
@@ -167,27 +198,28 @@ class TrainDataset(Dataset):
             ed = self.ImpNum
         
         doc_ids = self.news_id[start:ed]
-        news_feature = self.News.fetch_news(doc_ids)
+        news_feature = torch.IntTensor(self.News.fetch_news(doc_ids))
         
         userids = self.userids[start:ed]
         clicked_ids = self.Users.click[userids]
-        user_feature = self.News.fetch_news(clicked_ids)
+        user_feature = torch.IntTensor(self.News.fetch_news(clicked_ids))
         
         bucket = self.buckets[start:ed]
-        candidate_ctr = fetch_ctr_dim2(self.News, doc_ids, bucket, FLAG_CTR)
+        candidate_ctr = torch.IntTensor(fetch_ctr_dim2(self.News, doc_ids, bucket, FLAG_CTR))
         
         click_bucket = self.Users.click_bucket[userids]
-        click_ctr = fetch_ctr_dim3(self.News, clicked_ids, click_bucket, FLAG_CTR)
+        click_ctr = torch.IntTensor(fetch_ctr_dim3(self.News, clicked_ids, click_bucket, FLAG_CTR))
 
         bucket = bucket.reshape((bucket.shape[0], 1))
         rece = bucket - self.News.news_publish_bucket2[doc_ids]
         
-        rece_emb_index = compute_Q_publish(rece)
-        user_activity = (clicked_ids > 0).sum(axis=-1)
+        rece_emb_index = torch.IntTensor(compute_Q_publish(rece))
+        user_activity = torch.IntTensor((clicked_ids > 0).sum(axis=-1))
         
-        label = self.label[start:ed]
+        label = torch.FloatTensor(self.label[start:ed])
+        input = (news_feature, candidate_ctr, rece_emb_index, user_activity, user_feature, click_ctr)
         
-        return (news_feature, candidate_ctr, rece_emb_index, user_activity, user_feature, click_ctr), label
+        return input, label
 
 # class UserGenerator(Sequence):
 #     def __init__(self,News, Users,batch_size):
@@ -217,6 +249,8 @@ class TrainDataset(Dataset):
 #         return [user_feature,click_ctr]
 
 
+
+
 class UserDataset(Dataset):
     def __init__(self, News, Users, batch_size):
         self.News = News
@@ -234,9 +268,9 @@ class UserDataset(Dataset):
             ed = self.ImpNum
 
         clicked_ids = self.Users.click[start:ed]
-        user_feature = self.News.fetch_news(clicked_ids)
+        user_feature = torch.IntTensor(self.News.fetch_news(clicked_ids))
         click_bucket = self.Users.click_bucket[start:ed]
-        click_ctr = fetch_ctr_dim3(self.News, clicked_ids, click_bucket, FLAG_CTR)
+        click_ctr = torch.IntTensor(fetch_ctr_dim3(self.News, clicked_ids, click_bucket, FLAG_CTR))
 
         return user_feature, click_ctr
 
@@ -278,7 +312,7 @@ class NewsDataset(Dataset):
             ed = self.ImpNum
 
         docids = np.array([i for i in range(start, ed)])
-        news_feature = self.News.fetch_news(docids)
+        news_feature = torch.IntTensor(self.News.fetch_news(docids))
 
         return news_feature
 

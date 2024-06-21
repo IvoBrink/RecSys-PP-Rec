@@ -731,7 +731,7 @@ class Popularity_aware_user_encoder(nn.Module):
         # [cliked_input, clicked_ctr] clicked_ctr -> label
         user_vecs = self.timeDistributed(x[0])
         user_vecs = self.MHSA(user_vecs, user_vecs, user_vecs)
-        popularity_embedding = self.popularity_embedding_layer((x[1] * 199).long())
+        popularity_embedding = self.popularity_embedding_layer(x[1])
 
         if (self.model_config['popularity_user_modeling']):
             user_vec_query = torch.cat((user_vecs, popularity_embedding), dim = -1) # keras.layers.Concatenate(axis=-1)([user_vecs,popularity_embedding])
@@ -813,7 +813,7 @@ class Multiply(nn.Module):
     def __init__(self, scaler):
         super().__init__()
     
-        self.scaler = scaler
+        self.scaler = nn.Parameter(torch.as_tensor([scaler], dtype=torch.float32))
 
     def forward(self, x):
         x = torch.multiply(x, self.scaler)

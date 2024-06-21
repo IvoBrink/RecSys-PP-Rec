@@ -343,12 +343,12 @@ def news_ranking(ranking_config,ctr_weight,activity_weights,user_scorings,news_s
         elif ranking_config['content'] and ranking_config['rece_emb']:
             bias_vecs = content_bias_vecs[docids]
             publish_time = bucket - publish_time
-            arg = publish_time<0
+            arg = publish_time < 0
             publish_time[arg] = 0
             publish_bucket = compute_Q_publish(publish_time)
             time_emb = time_embedding_matrix[publish_bucket]
-            bias_vecs = np.concatenate([bias_vecs,time_emb], axis=-1)
-            bias_score = bias_content_scorer.predict(bias_vecs)
+            bias_vecs = torch.cat([bias_vecs,time_emb], axis=-1)
+            bias_score = bias_content_scorer(bias_vecs)
             bias_score = bias_score[:,0]
         else:
             bias_score = 0
