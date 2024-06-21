@@ -20,7 +20,7 @@ class NewsContent():
         self.config = config
         self.read_news()
         self.get_doc_input()
-        # self.load_entitiy()
+        self.load_entitiy()
         self.load_ctr()
         self.load_publish_time()
 
@@ -168,69 +168,17 @@ class NewsContent():
     #FIXME: This function is completely useless, we do not use entities?
     def load_entitiy(self,):
         config = self.config
-        news_index = self.news_index
-        max_entity_num = config['max_entity_num']
-        KG_root_path = config['d']
+        KG_root_path = config['KG_root_path']
 
-        with open(os.path.join(KG_root_path,'entity2id.txt')) as f:
+        with open(os.path.join(KG_root_path,'entities2id.txt')) as f:
             lines = f.readlines()
-
         EntityId2Index = {}
         EntityIndex2Id = {}
-        for i in range(1,len(lines)):
-            eid, eindex = lines[i].strip('\n').split('\t')
+        for line in lines:
+            eindex, eid = line.strip('\n').split('\t')
             EntityId2Index[eid] = int(eindex)
             EntityIndex2Id[int(eindex)] = eid
-
-        with open(os.path.join(KG_root_path,'V21UrlDocs22_title_josn.tsv')) as f:
-            lines = f.readlines()
-
-        news_entity = {}
-        retain_entities = {}
-        index = 1
-        g = []
-        for i in range(len(lines)):
-            d = json.loads(lines[i].strip('\n'))
-            docid = d['doc_id']
-            if not docid in news_index:
-                continue
-            news_entity[docid] = []
-            entities = d['entities']
-            for j in range(len(entities)):
-                e = entities[j]['Label']
-                eid = entities[j]['WikidataId']
-                if not eid in EntityId2Index:
-                    continue
-                if not eid in retain_entities:
-                    retain_entities[eid] = index
-                    index += 1
-                news_entity[docid].append([e,eid])
-
-        entity_embedding = np.zeros((len(retain_entities)+1,100))
-
-        temp_entity_embedding = np.load(os.path.join(KG_root_path,'entity_embedding.npy'))
-
-        for eid in retain_entities:
-            retain_index = retain_entities[eid]
-            index = EntityId2Index[eid]
-            entity_embedding[retain_index,:] = temp_entity_embedding[index,:]
-
-        news_entity_index = np.zeros((len(news_index)+1,max_entity_num),dtype='int32')
-
-        for newsid in news_index:
-            index = news_index[newsid]
-            entities = news_entity[newsid]
-            ri = np.random.permutation(len(entities))
-            for j in range(min(len(entities),max_entity_num)):
-                eid = entities[ri[j]][-1]
-                news_entity_index[index,j] = retain_entities[eid]
-
-        self.entity_embedding = entity_embedding # used -> entity_embedding_matrix
-
-        # not used?
-        self.news_entity_index = news_entity_index
-        self.news_entity = news_entity
-        self.retain_entities = retain_entities
+        self.entity_dict = EntityId2Index
         
     def load_ctr(self,):
         news_index = self.news_index
