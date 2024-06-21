@@ -170,7 +170,7 @@ class NewsContent():
         config = self.config
         KG_root_path = config['KG_root_path']
 
-        with open(os.path.join(KG_root_path,'entities2id.txt')) as f:
+        with open(os.path.join(KG_root_path,'entities2id.txt'), encoding="utf8") as f:
             lines = f.readlines()
         EntityId2Index = {}
         EntityIndex2Id = {}
@@ -179,7 +179,16 @@ class NewsContent():
             EntityId2Index[eid] = int(eindex)
             EntityIndex2Id[int(eindex)] = eid
         self.entity_dict = EntityId2Index
-        
+
+        doc2entities = {}
+        with open(os.path.join(KG_root_path,'doc2entitiesid.txt'), encoding="utf8") as f:
+            lines = f.readlines()
+            for line in lines:
+                doc_id, entities = line.strip('\n').split('\t')
+                entities = entities.split()
+                doc2entities[doc_id] = [int(entity) for entity in entities]
+        self.doc2entities = doc2entities
+
     def load_ctr(self,):
         news_index = self.news_index
         popularity_path = self.config['popularity_path']
