@@ -81,7 +81,7 @@ class Doc_encoder(nn.Module):
         # is it size 1 as in one document?
         self.conv = nn.Conv1d(300, 400, kernel_size=3, padding=1)
         self.relu = nn.ReLU()
-        self.attention = Attention(20,20)
+        # self.attention = Attention(20,20)
         self.attentivePool = AttentivePooling(text_length, 400)
 
 
@@ -94,8 +94,8 @@ class Doc_encoder(nn.Module):
             x = self.conv(x)
             x = self.relu(x)
             
-        elif self.news_encoder=='SelfAtt':
-            x = self.attention(x, x, x)
+        # elif self.news_encoder=='SelfAtt':
+            # x = self.attention(x, x, x)
 
         elif self.news_encoder=='SelfAttPE':
             # d_et = PositionEmbedding(title_length,300)(d_et) keras.layers.PositionEmbedding
@@ -214,14 +214,18 @@ class News_encoder(nn.Module):
             self.PositionTable[v] = (self.input_length, self.input_length + self.LengthTable[v])
             self.input_length += self.LengthTable[v]
         
-        self.word_embedding_layer = nn.Embedding(self.word_num + 1, word_embedding_matrix.shape[1]) # keras.layers.embedding TODO Check if weights are a tensor
+        self.word_embedding_layer = nn.Embedding(self.word_num + 1, word_embedding_matrix.shape[1]) # keras.layers.embedding 
         with torch.no_grad():
             self.word_embedding_layer.weight = nn.Parameter(torch.from_numpy(word_embedding_matrix).float())
 
+        self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1]) # keras.layers.embedding 
+        with torch.no_grad():
+            self.entity_embedding_layer.weight = nn.Parameter(torch.from_numpy(entity_embedding_matrix).float())
+
         
         # self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1], _freeze = True) #Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
-        # self.attention = Attention(20,20)
-        # self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
+        self.attention = Attention(20,20, 300, 300, 300)
+        self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
         
         self.title_vec = None
         self.body_vec = None
@@ -235,30 +239,30 @@ class News_encoder(nn.Module):
         if 'title' in self.config['attrs']:
             title_input = (lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]]) (x)
             title_encoder = Doc_encoder(self.config, self.LengthTable['title'], self.word_embedding_layer)
-            title_vec = title_encoder(title_input)
+            self.title_vec = title_encoder(title_input)
         
         if 'body' in self.config['attrs']:
             body_input = (lambda xi: xi[:, self.PositionTable['body'][0] : self.PositionTable['body'][1]]) (x)
             body_encoder = Doc_encoder(self.config, self.LengthTable['body'], self.word_embedding_layer)
-            body_vec = body_encoder(body_input)
+            self.body_vec = body_encoder(body_input)
         
         if 'vert' in self.config['attrs']:
             vert_input = (lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]]) (x)
             vert_encoder = Vert_encoder(self.config, self.vert_num)
-            vert_vec = vert_encoder(vert_input)
+            self.vert_vec = vert_encoder(vert_input)
         
         if 'subvert' in self.config['attrs']:
             subvert_input = (lambda xi: xi[:, self.PositionTable['subvert'][0] : self.PositionTable['subvert'][1]]) (x)
             subvert_encoder = Vert_encoder(self.config, self.subvert_num)
-            subvert_vec = subvert_encoder(subvert_input)
+            self.subvert_vec = subvert_encoder(subvert_input)
         
         if 'entity' in self.config['attrs']:
             entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]]) (x)
             entity_emb = self.entity_embedding_layer(entity_input)
             entity_vecs = self.attention(entity_emb,entity_emb,entity_emb)
-            entity_vec = self.attentive_pool(entity_vecs)
+            self.entity_vec = self.attentive_pool(entity_vecs)
 
-        vec_Table = {'title':title_vec,'body':body_vec,'vert':vert_vec}
+        vec_Table = {'title':self.title_vec,'body':self.body_vec,'vert':self.vert_vec, 'entity': self.entity_vec, 'subvert': self.subvert_vec}
         feature = []
         for attr in self.config['attrs']:
             feature.append(vec_Table[attr])
@@ -389,8 +393,8 @@ class News_encoder_co1(nn.Module):
         self.word_embedding_layer = nn.Embedding(self.word_num+1, self.word_embedding_matrix.shape[1], _weight=self.word_embedding_matrix) # keras.layers.embedding
         self.vert_embedding_layer = nn.Embedding(self.vert_num + 1, 200) # Embedding(vert_num+1, 200,trainable=True) 
         self.entity_embedding_layer = nn.Embedding(self.entity_embedding_matrix.shape[0], self.entity_embedding_matrix.shape[1]) # Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=True)
-        self.attention = Attention(20,20)
-        self.attention2 = Attention(5,40)
+        self.attention = Attention(20,20,400, 400, 400)
+        self.attention2 = Attention(5,40, )
         self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
         self.attentive_pool2 = AttentivePooling(self.config['title_length'], 400)
         self.dropout = nn.Dropout(p = 0.2)
@@ -571,6 +575,7 @@ class TimeDistributed(nn.Module):
         # print(x_reshape.shape, "post time")
         y = self.module(x_reshape)
 
+       
         # We have to reshape Y
         if self.batch_first:
             y = y.contiguous().view(x.size(0), -1, y.size(-1))  # (samples, timesteps, output_size)
@@ -722,7 +727,7 @@ class Popularity_aware_user_encoder(nn.Module):
 
         self.timeDistributed = TimeDistributed(self.news_encoder)
         self.popularity_embedding_layer = nn.Embedding(200,400) # Embedding(200, 400,trainable=True)
-        self.MHSA = Attention(20,20)
+        self.MHSA = Attention(20,20, 400, 400, 400)
         self.attentivePoolQKY = AttentivePoolingQKY(50, 800, 400)
         self.attentivePool = AttentivePooling(self.max_clicked_news, 400)
         self.dropout = nn.Dropout(0.2)
@@ -731,7 +736,9 @@ class Popularity_aware_user_encoder(nn.Module):
         # [cliked_input, clicked_ctr] clicked_ctr -> label
         user_vecs = self.timeDistributed(x[0])
         user_vecs = self.MHSA(user_vecs, user_vecs, user_vecs)
+        # print("test in")
         popularity_embedding = self.popularity_embedding_layer(x[1])
+        # print("test out")
 
         if (self.model_config['popularity_user_modeling']):
             user_vec_query = torch.cat((user_vecs, popularity_embedding), dim = -1) # keras.layers.Concatenate(axis=-1)([user_vecs,popularity_embedding])

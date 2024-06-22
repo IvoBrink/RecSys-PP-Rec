@@ -4,6 +4,7 @@ from datetime import datetime
 import time
 import re
 from PEGenerator import *
+from tqdm import trange
 
 
 FLAG_CTR = 1
@@ -320,10 +321,90 @@ def rel_news_ranking(user_scorings,news_scorings,Impressions):
     
     return rankings
 
-def news_ranking(ranking_config,ctr_weight,activity_weights,user_scorings,news_scorings,
-                 content_bias_score,content_bias_vecs,time_embedding_matrix,bias_content_scorer,
-                 News,Impressions):
+def news_ranking(ranking_config,ctr_weight,news_encoder,
+                 content_bias_score,bias_news_encoder,time_embedding_matrix,bias_content_scorer,
+                 News,Impressions, news_generator, user_encoder, user_generator, activity_gater):
     rankings = []
+
+
+    # news_scoring = []
+    # for x in news_generator:
+    #     news_scoring.append(news_encoder(x))
+    # news_scoring = torch.cat(news_scoring, dim = 0)
+
+    # rel_scores = []
+    # # for i in range(len(Impressions)):
+    # i = 2
+    # for x, y in user_generator:
+    #     user_scorings = user_encoder((x, y))
+    #     docids = Impressions[i]['docs']
+    #     docids = np.array(docids)
+    #     bucket = Impressions[i]['tsp']
+    #     print(docids)
+        
+    #     publish_time = News.news_publish_bucket2[docids]
+
+    #     if ranking_config['rel']:
+    #         uv = user_scorings[i]
+    #         nv = news_scoring[docids]
+    #         rel_scores.append(np.dot(nv,uv))
+    #     else:
+    #         rel_scores.append(0)
+    #     i +=1
+    # print(rel_scores, "rel_scores")
+        
+    # news_bias_vecs = []
+    # for x in news_generator:
+    #     news_bias_vecs.append(bias_news_encoder(x))
+    # news_bias_vecs = torch.cat(news_bias_vecs, dim = 0)
+
+    # bias_scores = []
+    # for i in range(len(Impressions)):
+    #     if ranking_config['content'] and not ranking_config['rece_emb']:
+    #         bias_score = content_bias_score[docids]
+    #     elif ranking_config['content'] and ranking_config['rece_emb']:
+    #         bias_vecs = news_bias_vecs[docids]
+    #         publish_time = bucket - publish_time
+    #         arg = publish_time < 0
+    #         publish_time[arg] = 0
+    #         publish_bucket = compute_Q_publish(publish_time)
+    #         time_emb = time_embedding_matrix[publish_bucket]
+    #         bias_vecs = torch.cat([bias_vecs,time_emb], axis=-1)
+    #         bias_score = bias_content_scorer(bias_vecs)
+    #         bias_scores.append( bias_score[:,0])
+    #     else:
+    #         bias_scores.append(0)
+    # print(bias_scores, "bias_scores")    
+
+    # gates = []
+    # ctrs = []
+
+    # # predicted_activity_gates = activity_gater(user_scoring)
+    # # predicted_activity_gates = predicted_activity_gates[:,0]
+
+    # for i in range(len(Impressions)):
+    #     if ranking_config['activity']:
+    #         gate = activity_weights[i]
+    #     else:
+    #         gate = 0.5
+        
+    #     if ranking_config['ctr']:
+    #         ctr = fetch_ctr_dim1(News,docids,bucket,FLAG_CTR)
+    #     else:
+    #         ctr = 0
+    #     gates.append(gate)
+    #     ctrs.append(ctr)
+    # print("gates/ctrs")
+
+    # rankings = gates*rel_scores + (1-gates)*(ctrs*ctr_weight + bias_scores)
+
+    # print(rankings, "rankings")
+
+    # rankings.append(score)
+
+
+
+
     for i in range(len(Impressions)):
         docids = Impressions[i]['docs']
         docids = np.array(docids)
@@ -368,3 +449,86 @@ def news_ranking(ranking_config,ctr_weight,activity_weights,user_scorings,news_s
         rankings.append(score)
     
     return rankings
+
+def eval_model(model_config, News, user_encoder, impressions, user_data, user_ids, news_encoder, bias_news_encoder, activity_gater, 
+               time_embedding_layer, bias_content_scorer, scaler):
+    rankings = []
+    AUC = []
+    MRR = []
+    nDCG5 = []
+    nDCG10 =[]
+    for i in trange(len(impressions)):
+        docids = impressions[i]['docs']
+        docids = np.array(docids)
+        bucket = impressions[i]['tsp']
+        
+        publish_time = News.news_publish_bucket2[docids]
+
+        if model_config['rel']:        
+            uv = user_encoder(user_data.__getitem__(user_ids[i]))
+            nv = news_encoder(torch.IntTensor(News.fetch_news(docids)))
+            rel_score = torch.matmul(nv, uv[0])
+            predicted_activity_gate = activity_gater(uv)
+            predicted_activity_gate = predicted_activity_gate[:,0]
+
+        else:
+            rel_score = 0
+        
+        if model_config['content'] and model_config['rece_emb']:
+            bias_vecs = bias_news_encoder(torch.IntTensor(News.fetch_news(docids)))
+            publish_time = bucket - publish_time
+            arg = publish_time < 0
+            publish_time[arg] = 0
+            publish_bucket = compute_Q_publish(publish_time)
+            time_emb = time_embedding_layer.weight[publish_bucket]
+            bias_vecs = torch.cat([bias_vecs,time_emb], axis=-1)
+            bias_score = bias_content_scorer(bias_vecs)
+            bias_score = bias_score[:,0]
+        else:
+            bias_score = 0
+
+
+        if model_config['activity']:
+            gate = predicted_activity_gate
+        else:
+            gate = 0.5
+        
+        if model_config['ctr']:
+            ctr = torch.FloatTensor(fetch_ctr_dim1(News,docids,bucket,FLAG_CTR))
+        else:
+            ctr = 0
+
+        score = gate*rel_score + (1-gate)*(ctr*scaler.scaler[0] + bias_score)
+        score = score.detach().numpy()
+        # print(score)
+
+        labels = impressions[i]['labels']
+        labels = np.array(labels)
+        
+        auc = my_auc(labels,score)
+        mrr = mrr_score(labels,score)
+        ndcg5 = ndcg_score(labels,score,k=5)
+        ndcg10 = ndcg_score(labels,score,k=10)
+
+        # print(auc, mrr, ndcg5, ndcg10)
+
+        AUC.append(auc)
+        MRR.append(mrr)
+        nDCG5.append(ndcg5)
+        nDCG10.append(ndcg10)
+        # return AUC, MRR, nDCG5, nDCG10
+
+        # rankings.append(score)
+        
+
+    AUC = np.array(AUC)
+    MRR = np.array(MRR)
+    nDCG5 = np.array(nDCG5)
+    nDCG10 = np.array(nDCG10)
+
+    AUC = AUC.mean()
+    MRR = MRR.mean()
+    nDCG5 = nDCG5.mean()
+    nDCG10 = nDCG10.mean()
+
+    return [AUC, MRR, nDCG5, nDCG10]

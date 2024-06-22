@@ -1,5 +1,6 @@
 import numpy as np
 from utils import *
+from collections import defaultdict
 import os
 import json
 
@@ -42,7 +43,7 @@ class NewsContent():
         if 'body' in config['attrs']:
             body = self.body[docids]
         if 'entity' in config['attrs']:
-            entity = self.news_entity_index[docids]
+            entity = self.doc2entities[docids]
             
         FeatureTable = {'title':title,'vert':vert,'subvert':subvert,'body':body,'entity':entity}
         # print(FeatureTable)
@@ -180,13 +181,22 @@ class NewsContent():
             EntityIndex2Id[int(eindex)] = eid
         self.entity_dict = EntityId2Index
 
-        doc2entities = {}
+        # doc2entities = defaultdict(lambda:[0]* self.config['max_entity_num'])
+        doc2entities = np.zeros((len(self.news_index) + 1, self.config['max_entity_num']), dtype='int32')
         with open(os.path.join(KG_root_path,'doc2entitiesid.txt'), encoding="utf8") as f:
             lines = f.readlines()
             for line in lines:
                 doc_id, entities = line.strip('\n').split('\t')
+                doc_id = self.news_index['N' +doc_id]
                 entities = entities.split()
-                doc2entities[doc_id] = [int(entity) for entity in entities]
+                for i in range(min(len(entities),5)):
+                    doc2entities[doc_id][i] = int(entities[i])
+                # if len(entities) > 5:
+                #     doc2entities[ self.news_index['N' +doc_id]] = [int(entity) for entity in entities][:5]
+                # elif len(entities)<5:
+                #     doc2entities[ self.news_index['N' +doc_id]] = [int(entity) for entity in entities] + [0]*(5-len(entities))
+                # else:
+                #     doc2entities[ self.news_index['N' +doc_id]] = [int(entity) for entity in entities]
         self.doc2entities = doc2entities
 
     def load_ctr(self,):

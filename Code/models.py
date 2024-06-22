@@ -96,16 +96,16 @@ from torch.nn import init
 
 
 class Attention(nn.Module):
-    def __init__(self, nb_head, size_per_head):
+    def __init__(self, nb_head, size_per_head, input_size1, input_size2, input_size3):
         super().__init__()
         self.nb_head = nb_head
         self.size_per_head = size_per_head
         self.output_dim = nb_head * size_per_head
         
         # Initialize weights
-        self.WQ = nn.Linear(self.output_dim, self.output_dim, bias=False)
-        self.WK = nn.Linear(self.output_dim, self.output_dim, bias=False)
-        self.WV = nn.Linear(self.output_dim, self.output_dim, bias=False)
+        self.WQ = nn.Linear(input_size1, self.output_dim, bias=False)
+        self.WK = nn.Linear(input_size2, self.output_dim, bias=False)
+        self.WV = nn.Linear(input_size3, self.output_dim, bias=False)
 
     def mask(self, inputs, seq_len, mode='mul'):
         if seq_len is None:
