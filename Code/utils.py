@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from sklearn.metrics import roc_auc_score
 from datetime import datetime
 import time
@@ -451,7 +452,7 @@ def news_ranking(ranking_config,ctr_weight,news_encoder,
     return rankings
 
 def eval_model(model_config, News, user_encoder, impressions, user_data, user_ids, news_encoder, bias_news_encoder, activity_gater, 
-               time_embedding_layer, bias_content_scorer, scaler):
+               time_embedding_layer, bias_content_scorer, scaler, device):
     rankings = []
     AUC = []
     MRR = []
@@ -464,9 +465,11 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
         
         publish_time = News.news_publish_bucket2[docids]
 
-        if model_config['rel']:        
-            uv = user_encoder(user_data.__getitem__(user_ids[i]))
-            nv = news_encoder(torch.IntTensor(News.fetch_news(docids)))
+        if model_config['rel']:
+            user_data_on_ids = user_data.__getitem__(user_ids[i])
+            user_data_on_ids = (user_data_on_ids[0].to(device), user_data_on_ids[1].to(device))
+            uv = user_encoder(user_data_on_ids)
+            nv = news_encoder(torch.IntTensor(News.fetch_news(docids)).to(device))
             rel_score = torch.matmul(nv, uv[0])
             predicted_activity_gate = activity_gater(uv)
             predicted_activity_gate = predicted_activity_gate[:,0]
@@ -475,13 +478,13 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
             rel_score = 0
         
         if model_config['content'] and model_config['rece_emb']:
-            bias_vecs = bias_news_encoder(torch.IntTensor(News.fetch_news(docids)))
+            bias_vecs = bias_news_encoder(torch.IntTensor(News.fetch_news(docids)).to(device))
             publish_time = bucket - publish_time
             arg = publish_time < 0
             publish_time[arg] = 0
             publish_bucket = compute_Q_publish(publish_time)
-            time_emb = time_embedding_layer.weight[publish_bucket]
-            bias_vecs = torch.cat([bias_vecs,time_emb], axis=-1)
+            time_emb = time_embedding_layer.weight[publish_bucket].to(device)
+            bias_vecs = torch.cat([bias_vecs,time_emb], axis=-1).to(device)
             bias_score = bias_content_scorer(bias_vecs)
             bias_score = bias_score[:,0]
         else:
@@ -494,12 +497,12 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
             gate = 0.5
         
         if model_config['ctr']:
-            ctr = torch.FloatTensor(fetch_ctr_dim1(News,docids,bucket,FLAG_CTR))
+            ctr = torch.FloatTensor(fetch_ctr_dim1(News,docids,bucket,FLAG_CTR)).to(device)
         else:
             ctr = 0
 
-        score = gate*rel_score + (1-gate)*(ctr*scaler.scaler[0] + bias_score)
-        score = score.detach().numpy()
+        score = gate*rel_score + (torch.tensor(1)-gate)*(ctr*scaler.scaler[0] + bias_score)
+        score = score.cpu().detach().numpy()
         # print(score)
 
         labels = impressions[i]['labels']
