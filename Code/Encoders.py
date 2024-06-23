@@ -233,28 +233,39 @@ class News_encoder(nn.Module):
         self.subvert_vec = None
         self.entity_vec = None
 
+        if 'title' in config['attrs']:
+            self.title_encoder = Doc_encoder(config, config['title_length'], self.word_embedding_layer)
+        if 'body' in config['attrs']:
+            self.body_encoder = Doc_encoder(config, config['body_length'], self.word_embedding_layer)
+        if 'vert' in config['attrs']:
+            self.vert_encoder = Vert_encoder(config, vert_num)
+        if 'subvert' in config['attrs']:
+            self.subvert_encoder = Vert_encoder(config, subvert_num)
+
+
+
     def forward(self, x):
 
         
         if 'title' in self.config['attrs']:
             title_input = (lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]]) (x)
-            title_encoder = Doc_encoder(self.config, self.LengthTable['title'], self.word_embedding_layer)
-            self.title_vec = title_encoder(title_input)
+            # title_encoder = Doc_encoder(self.config, self.LengthTable['title'], self.word_embedding_layer)
+            self.title_vec = self.title_encoder(title_input)
         
         if 'body' in self.config['attrs']:
             body_input = (lambda xi: xi[:, self.PositionTable['body'][0] : self.PositionTable['body'][1]]) (x)
-            body_encoder = Doc_encoder(self.config, self.LengthTable['body'], self.word_embedding_layer)
-            self.body_vec = body_encoder(body_input)
+            # body_encoder = Doc_encoder(self.config, self.LengthTable['body'], self.word_embedding_layer)
+            self.body_vec = self.body_encoder(body_input)
         
         if 'vert' in self.config['attrs']:
             vert_input = (lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]]) (x)
-            vert_encoder = Vert_encoder(self.config, self.vert_num)
-            self.vert_vec = vert_encoder(vert_input)
+            # vert_encoder = Vert_encoder(self.config, self.vert_num)
+            self.vert_vec = self.vert_encoder(vert_input)
         
         if 'subvert' in self.config['attrs']:
             subvert_input = (lambda xi: xi[:, self.PositionTable['subvert'][0] : self.PositionTable['subvert'][1]]) (x)
-            subvert_encoder = Vert_encoder(self.config, self.subvert_num)
-            self.subvert_vec = subvert_encoder(subvert_input)
+            # subvert_encoder = Vert_encoder(self.config, self.subvert_num)
+            self.subvert_vec = self.subvert_encoder(subvert_input)
         
         if 'entity' in self.config['attrs']:
             entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]]) (x)
@@ -276,8 +287,7 @@ class News_encoder(nn.Module):
                 feature[i] = torch.reshape(feature[i], (-1, 1, 400)) #keras.layers.Reshape((1,400))(feature[i])    
             
             news_vecs = torch.cat(feature, dim = 1)   # keras.layers.Concatenate(axis=1)(feature)
-            news_vec = AttentivePooling(len(self.config['attrs']), 400)(news_vecs)
-    
+            news_vec = self.attentive_pool(news_vecs)
 
         return news_vec
 
@@ -584,6 +594,10 @@ class TimeDistributed(nn.Module):
 
         return y
 
+    def to(self, device):
+        self.module.to(device)
+        super().to(device)
+
 # def create_pe_model(config,model_config,News,word_embedding_matrix,entity_embedding_matrix):
 #     max_clicked_news = config['max_clicked_news']
         
@@ -828,8 +842,9 @@ class Multiply(nn.Module):
 
     
 class PE_model(nn.Module):
-    def __init__(self, config, model_config, News, word_embedding_matrix, entity_embedding_matrix):
+    def __init__(self, config, model_config, News, word_embedding_matrix, entity_embedding_matrix, device):
         super().__init__()
+        self.device = device
         self.config = config
         self.model_config = model_config
         self.News = News
@@ -865,41 +880,43 @@ class PE_model(nn.Module):
         # 3 user activity
         # 4 clicked input
         # 5 clicked ctr
-        time_embedding = self.time_embedding_layer(x[2]) # shape (2, 100)
-        candidate_vecs = self.time_distributed1(x[0]) # shape (batch, 2, 400)
-        bias_candidate_vecs = self.time_distributed2(x[0]) # ditto
+        time_embedding = self.time_embedding_layer(x[2]).to(self.device) # shape (2, 100)
+        candidate_vecs = self.time_distributed1(x[0]).to(self.device) # shape (batch, 2, 400)
+        bias_candidate_vecs = self.time_distributed2(x[0]).to(self.device) # ditto
 
         if self.model_config['rece_emb']:
             bias_candidate_vecs = torch.cat((bias_candidate_vecs, time_embedding), dim=-1) # shape (batch, 2, 500)
         bias_candidate_score = self.time_distributed3(bias_candidate_vecs)
-        bias_candidate_score = bias_candidate_score.view( -1, 1 + self.config['npratio'])
+        bias_candidate_score = bias_candidate_score.view( -1, 1 + self.config['npratio']).to(self.device)
 
         user_vec = self.pop_aware_user_encoder([x[4], x[5]])
-        rel_scores = torch.zeros(candidate_vecs.shape[0:2])
+        rel_scores = torch.zeros(candidate_vecs.shape[0:2]).to(self.device)
         for i in range(x[0].shape[0]):
             
-            rel_scores[i] = torch.sum(torch.mul(candidate_vecs[i],user_vec[i]), dim = 1)
+            rel_scores[i] = torch.sum(torch.mul(candidate_vecs[i],user_vec[i]), dim = 1).to(self.device)
         
         ctrs = x[1].view(-1, 1)
         ctrs = self.scaler(ctrs)
-        bias_ctr_score = ctrs.view(-1, 1 + self.config['npratio'])
+        bias_ctr_score = ctrs.view(-1, 1 + self.config['npratio']).to(self.device)
 
-        user_activity = self.activity_gater(user_vec)
-
-        
+        user_activity = self.activity_gater(user_vec).to(self.device)
         # adding up scores
         scores = []
+        scale_factor = torch
         if self.model_config['rel']: # user history + news  
             if self.model_config['activity']:
-                rel_scores = (lambda x:2*x[0]*x[1]) ([rel_scores, user_activity])
+                # rel_scores = (lambda x:2*x[0]*x[1]) ([rel_scores, user_activity])
+                rel_scores = (lambda x:x[0]*x[1]) ([rel_scores, user_activity])
             scores.append(rel_scores)
         if self.model_config['content']: # news attributes + recency
             if self.model_config['activity']:
-                bias_candidate_score = (lambda x:2*x[0]*(1-x[1]))([bias_candidate_score, user_activity])
+                # bias_candidate_score = (lambda x:2*x[0]*(1-x[1]))([bias_candidate_score, user_activity])
+                bias_candidate_score = (lambda x:x[0]*(1-x[1]))([bias_candidate_score, user_activity])
             scores.append(bias_candidate_score)
         if self.model_config['ctr']: # ctr 
             if self.model_config['activity']:
-                bias_ctr_score = (lambda x:2*x[0]*(1-x[1]))([bias_ctr_score, user_activity])
+                # bias_ctr_score = (lambda x:2*x[0]*(1-x[1]))([bias_ctr_score, user_activity])
+                bias_ctr_score = (lambda x:x[0]*(1-x[1]))([bias_ctr_score, user_activity])
             scores.append(bias_ctr_score)
 
         if len(scores)>1:
@@ -912,9 +929,9 @@ class PE_model(nn.Module):
         return logits
 
 
-def create_pe_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix):
+def create_pe_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix, device):
 
-    model = PE_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix)
+    model = PE_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix, device)
     # use these params when training model. no 'compile' in torch
     # model.compile(loss=['categorical_crossentropy'],
     #               optimizer=Adam(lr=0.0001), 
