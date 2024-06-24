@@ -206,14 +206,14 @@ def evaluate_cold_users(rankings,Impressions,test_click,num):
 
 
 def ILAD(vecs):
-    score = np.dot(vecs,vecs.T)
+    score = torch.matmul(vecs,vecs.T)
     score = (score+1)/2
     score = score.mean()-1/score.shape[0]
     score = float(score)
     return score
 
 def ILMD(vecs):
-    score = np.dot(vecs,vecs.T)
+    score = torch.matmul(vecs,vecs.T)
     score = (score+1)/2
     score = score.min()
     score = float(score)
@@ -266,6 +266,7 @@ def evaluate_diversity_topic_norm(topk,rankings,Impressions,News,Users,Category)
         uc = Users.click[i]
         uverts = Category[uc].tolist()
         uverts = set(uverts) -{0}
+
         
         s = 0
         for v in verts:
@@ -285,7 +286,7 @@ def evaluate_diversity_topic_norm(topk,rankings,Impressions,News,Users,Category)
 def evaluate_diversity_topic_all(TOP_DIVERSITY_NUM,rankings,test_impressions,News,TestUsers):
     
     g3 = evaluate_diversity_topic_norm(TOP_DIVERSITY_NUM,rankings,test_impressions,News,TestUsers,News.vert)
-    g4 = evaluate_diversity_topic_norm(TOP_DIVERSITY_NUM,rankings,test_impressions,News,TestUsers,News.subvert)
+    g4 = evaluate_diversity_topic_norm(TOP_DIVERSITY_NUM,rankings,test_impressions,News, TestUsers,News.subvert)
     
 
     metric = {
@@ -452,12 +453,35 @@ def news_ranking(ranking_config,ctr_weight,news_encoder,
     return rankings
 
 def eval_model(model_config, News, user_encoder, impressions, user_data, user_ids, news_encoder, bias_news_encoder, activity_gater, 
-               time_embedding_layer, bias_content_scorer, scaler, device):
-    rankings = []
+               time_embedding_layer, bias_content_scorer, scaler, colds, topKs, Users, device):
+    
     AUC = []
     MRR = []
     nDCG5 = []
     nDCG10 =[]
+
+    coldAUC = []
+    coldMRR = []
+    coldnDCG5 = []
+    coldnDCG10 =[]
+    cold_index = {}
+
+    topics = []
+
+    ILADs = []
+    ILMDs = []
+    for i in range(topKs):
+        topics.append([])
+        ILADs.append([])
+        ILMDs.append([])
+
+    for i in range(len(colds)):
+        coldAUC.append([])
+        coldMRR.append([])
+        coldnDCG5.append([])
+        coldnDCG10.append([])
+        cold_index[colds[i]] = i
+
     for i in trange(len(impressions)):
         docids = impressions[i]['docs']
         docids = np.array(docids)
@@ -467,6 +491,7 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
 
         if model_config['rel']:
             user_data_on_ids = user_data.__getitem__(user_ids[i])
+            user_coldness = int(torch.count_nonzero(user_data_on_ids[1]))
             user_data_on_ids = (user_data_on_ids[0].to(device), user_data_on_ids[1].to(device))
             uv = user_encoder(user_data_on_ids)
             nv = news_encoder(torch.IntTensor(News.fetch_news(docids)).to(device))
@@ -503,35 +528,72 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
 
         score = gate*rel_score + (torch.tensor(1)-gate)*(ctr*scaler.scaler[0] + bias_score)
         score = score.cpu().detach().numpy()
-        # print(score)
 
         labels = impressions[i]['labels']
         labels = np.array(labels)
         
+        # Standard metrics
         auc = my_auc(labels,score)
         mrr = mrr_score(labels,score)
         ndcg5 = ndcg_score(labels,score,k=5)
         ndcg10 = ndcg_score(labels,score,k=10)
 
-        # print(auc, mrr, ndcg5, ndcg10)
-
         AUC.append(auc)
         MRR.append(mrr)
         nDCG5.append(ndcg5)
         nDCG10.append(ndcg10)
-        # return AUC, MRR, nDCG5, nDCG10
-
-        # rankings.append(score)
         
+        # Cold user calc
+        if user_coldness in colds:
+            idx = cold_index[user_coldness]
+            coldAUC[idx].append(auc)
+            coldMRR[idx].append(mrr)
+            coldnDCG5[idx].append(ndcg5)
+            coldnDCG10[idx].append(ndcg10)
+        
+        
+        for TOP_DIVERSITY_NUM in range(1, topKs+1):
+            # Diversity calc
+            top_args = score.argsort()[-TOP_DIVERSITY_NUM:]
+            top_docids = docids[top_args]
+            verts = News.vert[top_docids].tolist()
+            mask = labels[top_args]
+            verts = verts * mask
+            verts = np.array(verts,dtype='int32')
+            
+            uc = Users.click[i]
+            uverts = News.vert[uc].tolist()
+            uverts = set(uverts) -{0}
+            
+            s = 0
+            for v in verts:
+                if v == 0:
+                    continue
+                if not v in uverts:
+                    s += 1
+            s /= (mask.sum()+0.01)
+            topics[TOP_DIVERSITY_NUM-1].append(s)
 
-    AUC = np.array(AUC)
-    MRR = np.array(MRR)
-    nDCG5 = np.array(nDCG5)
-    nDCG10 = np.array(nDCG10)
+            # Density calc
+            nv2 = nv/torch.sqrt(torch.sum(torch.square(nv), dim = -1)).reshape((nv.shape[0],1))
+            nv2 = nv2[top_args]
+            ilad = ILAD(nv2)
+            ilmd = ILMD(nv2)
+            ILADs[TOP_DIVERSITY_NUM-1].append(ilad)
+            ILMDs[TOP_DIVERSITY_NUM-1].append(ilmd)
 
-    AUC = AUC.mean()
-    MRR = MRR.mean()
-    nDCG5 = nDCG5.mean()
-    nDCG10 = nDCG10.mean()
+    normal_metrics = [AUC, MRR, nDCG5, nDCG10]
+    cold_metrics = [coldAUC, coldMRR, coldnDCG5, coldnDCG10]        
 
-    return [AUC, MRR, nDCG5, nDCG10]
+    for i in range(len(normal_metrics)):
+        normal_metrics[i] = np.array(normal_metrics[i]).mean()
+
+        for j in range(len(colds)):
+            cold_metrics[i][j] = np.array(cold_metrics[i][j]).mean()
+    
+    for i in range(len(topics)):
+        topics[i] = np.array(topics[i]).mean()
+        ILADs[i] = np.array(ILADs[i]).mean()
+        ILMDs[i] = np.array(ILMDs[i]).mean()
+
+    return normal_metrics, cold_metrics, topics, ILADs, ILMDs
