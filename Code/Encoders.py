@@ -400,11 +400,17 @@ class News_encoder_co1(nn.Module):
             self.PositionTable[v] = (self.input_length, self.input_length + self.LengthTable[v])
             self.input_length += self.LengthTable[v]
         
-        self.word_embedding_layer = nn.Embedding(self.word_num+1, self.word_embedding_matrix.shape[1], _weight=self.word_embedding_matrix) # keras.layers.embedding
+        self.word_embedding_layer = nn.Embedding(self.word_num + 1, word_embedding_matrix.shape[1]) # keras.layers.embedding 
+        self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1]) # keras.layers.embedding 
         self.vert_embedding_layer = nn.Embedding(self.vert_num + 1, 200) # Embedding(vert_num+1, 200,trainable=True) 
-        self.entity_embedding_layer = nn.Embedding(self.entity_embedding_matrix.shape[0], self.entity_embedding_matrix.shape[1]) # Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=True)
-        self.attention = Attention(20,20,400, 400, 400)
-        self.attention2 = Attention(5,40, )
+        
+        
+        with torch.no_grad():
+            self.word_embedding_layer.weight = nn.Parameter(torch.from_numpy(word_embedding_matrix).float())
+            self.entity_embedding_layer.weight = nn.Parameter(torch.from_numpy(entity_embedding_matrix).float())
+
+        self.attention = Attention(20,20,300, 300, 300)
+        self.attention2 = Attention(5,40, 300, 300, 300)
         self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
         self.attentive_pool2 = AttentivePooling(self.config['title_length'], 400)
         self.dropout = nn.Dropout(p = 0.2)
@@ -422,7 +428,7 @@ class News_encoder_co1(nn.Module):
 
         vert_input = (lambda xi: xi[:, self.PositionTable['vert'][0] : self.PositionTable['vert'][1]]) (x)
         vert_emb = self.vert_embedding_layer(vert_input)
-        vert_emb = vert_emb.view(200,-1)
+        vert_emb = vert_emb.view(-1, 200)
         vert_vec = self.dropout(vert_emb)
 
         title_input = (lambda xi: xi[:, self.PositionTable['title'][0] : self.PositionTable['title'][1]]) (x)
