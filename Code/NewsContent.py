@@ -1,3 +1,5 @@
+import pickle
+
 import numpy as np
 from utils import *
 import os
@@ -23,6 +25,9 @@ class NewsContent():
         self.load_entitiy()
         self.load_ctr()
         self.load_publish_time()
+
+        if "image_embeddings" in config['attrs']:
+            self.get_image_embeddings()
 
     def fetch_news(self,docids,):
         title = None
@@ -244,6 +249,12 @@ class NewsContent():
             start = (news_stat_imp[i]>0).argmax()
             news_publish_bucket[i,] = start
         self.news_publish_bucket = news_publish_bucket
+
+
+    def get_image_embeddings(self):
+        with open(self.config['image_embedding_path'] + "image_embeddings.pkl") as f:
+            img_embeddings = pickle.load(f)
+        self.image_embeddings = img_embeddings
 
     def get_ctr(self, did, time):
         if(did==0):
