@@ -514,6 +514,10 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
             bias_vecs = torch.cat([bias_vecs,time_emb], axis=-1).to(device)
             bias_score = bias_content_scorer(bias_vecs)
             bias_score = bias_score[:,0]
+        elif model_config['content'] and not model_config['rece_emb']:
+            bias_vecs = bias_news_encoder(torch.IntTensor(News.fetch_news(docids)).to(device))
+            bias_score = bias_content_scorer(bias_vecs)
+            bias_score = bias_score[:,0]
         else:
             bias_score = 0
 
