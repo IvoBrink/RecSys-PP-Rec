@@ -255,12 +255,12 @@ class NewsContent():
             news_publish_bucket[i,] = start
         self.news_publish_bucket = news_publish_bucket
 
-    def get_ctr(self, did, time):
-        if(did==0):
-            return 0
-        # print(did, time)
-        ctr = np.sum(self.news_stat_click[did][time-20:time]) / (np.sum(self.news_stat_imp[did][time-20:time] + np.finfo(float).eps))
-        return ctr
+    # def get_ctr(self, did, time):
+    #     if(did==0):
+    #         return 0
+    #     # print(did, time)
+    #     ctr = np.sum(self.news_stat_click[did][time-20:time]) / (np.sum(self.news_stat_imp[did][time-20:time] + np.finfo(float).eps))
+    #     return ctr
     
     # def get_candidate(self, idx):
     #     candidate = self.title[idx] + self.body[idx] + self.vert[idx]

@@ -26,7 +26,7 @@ anchor = trans2tsp('05/17/2023 11:59:59 PM')
 def parse_time_bucket(date):
     tsp = trans2tsp(date)
     tsp = tsp - anchor
-    tsp = tsp//(600 )
+    tsp = tsp//(1200 )
     return tsp
 
 def dcg_score(y_true, y_score, k=10):
@@ -482,6 +482,8 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
         coldnDCG10.append([])
         cold_index[colds[i]] = i
 
+    print(cold_index)
+
     for i in trange(len(impressions)):
         docids = impressions[i]['docs']
         docids = np.array(docids)
@@ -491,7 +493,7 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
 
         if model_config['rel']:
             user_data_on_ids = user_data.__getitem__(user_ids[i])
-            user_coldness = int(torch.count_nonzero(user_data_on_ids[1]))
+            user_coldness = int(torch.count_nonzero(torch.sum(user_data_on_ids[0], dim=2)[0]))
             user_data_on_ids = (user_data_on_ids[0].to(device), user_data_on_ids[1].to(device))
             uv = user_encoder(user_data_on_ids)
             nv = news_encoder(torch.IntTensor(News.fetch_news(docids)).to(device))
@@ -542,7 +544,7 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
         MRR.append(mrr)
         nDCG5.append(ndcg5)
         nDCG10.append(ndcg10)
-        
+
         # Cold user calc
         if user_coldness in colds:
             idx = cold_index[user_coldness]
@@ -581,6 +583,8 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
             ilmd = ILMD(nv2)
             ILADs[TOP_DIVERSITY_NUM-1].append(ilad)
             ILMDs[TOP_DIVERSITY_NUM-1].append(ilmd)
+
+        
 
     normal_metrics = [AUC, MRR, nDCG5, nDCG10]
     cold_metrics = [coldAUC, coldMRR, coldnDCG5, coldnDCG10]        
