@@ -3,6 +3,7 @@ from utils import *
 from collections import defaultdict
 import os
 import json
+import pickle
 
 
 # def trans2tsp(date):
@@ -24,6 +25,7 @@ class NewsContent():
         self.load_entitiy()
         self.load_ctr()
         self.load_publish_time()
+        # self.load_images()
 
     def fetch_news(self,docids,):
         title = None
@@ -31,6 +33,7 @@ class NewsContent():
         subvert = None
         body = None
         entity = None
+        image = None
         config = self.config
         if 'title' in config['attrs']:   
             title = self.title[docids]
@@ -44,8 +47,11 @@ class NewsContent():
             body = self.body[docids]
         if 'entity' in config['attrs']:
             entity = self.doc2entities[docids]
+        if 'image' in config['attrs']:
+            image = docids.reshape(list(docids.shape)+[1])
+
             
-        FeatureTable = {'title':title,'vert':vert,'subvert':subvert,'body':body,'entity':entity}
+        FeatureTable = {'title':title,'vert':vert,'subvert':subvert,'body':body,'entity':entity, 'image':image}
         # print(FeatureTable)
         feature = [FeatureTable[v] for v in config['attrs']]
         feature = np.concatenate(feature, axis=-1)
@@ -265,3 +271,21 @@ class NewsContent():
     # def get_candidate(self, idx):
     #     candidate = self.title[idx] + self.body[idx] + self.vert[idx]
     #     return candidate
+
+    # def load_images(self):
+
+        # with open(self.config['data_root_path']+'image_embeddings.pkl', 'rb') as f:
+        #     data = pickle.load(f)
+
+        #     image_embs = np.zeros((len(self.news_index)+1, len(data.popitem()[1]),),dtype='float32')
+
+        #     for key in data:
+
+        #         if key in self.news_index:
+        #             image_embs[self.news_index[key]] = data[key]
+                    
+        #     self.image_embs = image_embs
+
+
+
+
