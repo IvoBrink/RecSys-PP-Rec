@@ -482,8 +482,6 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
         coldnDCG10.append([])
         cold_index[colds[i]] = i
 
-    print(cold_index)
-
     for i in trange(len(impressions)):
         docids = impressions[i]['docs']
         docids = np.array(docids)
@@ -496,7 +494,7 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
             user_coldness = int(torch.count_nonzero(torch.sum(user_data_on_ids[0], dim=2)[0]))
             user_data_on_ids = (user_data_on_ids[0].to(device), user_data_on_ids[1].to(device))
             uv = user_encoder(user_data_on_ids)
-            nv = news_encoder(torch.IntTensor(News.fetch_news(docids)).to(device))
+            nv = news_encoder(torch.IntTensor(np.array(News.fetch_news(docids))).to(device))
             rel_score = torch.matmul(nv, uv[0])
             predicted_activity_gate = activity_gater(uv)
             predicted_activity_gate = predicted_activity_gate[:,0]
@@ -522,7 +520,7 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
             bias_score = 0
 
 
-        if model_config['activity']:
+        if model_config['activity'] and model_config['rel']:
             gate = predicted_activity_gate
         else:
             gate = 0.5
@@ -587,8 +585,6 @@ def eval_model(model_config, News, user_encoder, impressions, user_data, user_id
             ilmd = ILMD(nv2)
             ILADs[TOP_DIVERSITY_NUM-1].append(ilad)
             ILMDs[TOP_DIVERSITY_NUM-1].append(ilmd)
-
-        
 
     normal_metrics = [AUC, MRR, nDCG5, nDCG10]
     cold_metrics = [coldAUC, coldMRR, coldnDCG5, coldnDCG10]        
