@@ -196,7 +196,7 @@ class Vert_encoder(nn.Module):
 #     return model
 
 class News_encoder(nn.Module):
-    def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix):
+    def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix, topic_embedding_matrix):
         super().__init__()
         self.config = config
         self.vert_num = vert_num
@@ -204,10 +204,12 @@ class News_encoder(nn.Module):
         self.word_num = word_num
         self.word_embedding_matrix = word_embedding_matrix
         self.entity_embedding_matrix = entity_embedding_matrix
+        self.topic_embedding_matrix = topic_embedding_matrix
         self.LengthTable = {'title':config['title_length'],
                    'body':config['body_length'],
                    'vert':1,'subvert':1,
-                   'entity':config['max_entity_num']}
+                   'entity':config['max_entity_num'],
+                   'topic': config['max_topics_num']}
         self.input_length = 0
         self.PositionTable = {}
         for v in config['attrs']:
@@ -222,9 +224,13 @@ class News_encoder(nn.Module):
         with torch.no_grad():
             self.entity_embedding_layer.weight = nn.Parameter(torch.from_numpy(entity_embedding_matrix).float())
 
+        self.topic_embedding_layer = nn.Embedding(topic_embedding_matrix.shape[0], topic_embedding_matrix.shape[1]) # keras.layers.embedding 
+        with torch.no_grad():
+            self.topic_embedding_layer.weight = nn.Parameter(torch.from_numpy(topic_embedding_matrix).float())
+
         
         # self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1], _freeze = True) #Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1],trainable=False)
-        self.attention = Attention(20,20, 300, 300, 300)
+        self.attention = Attention(20,20, 300,  300,  300)
         self.attentive_pool = AttentivePooling(self.LengthTable['entity'], 400)
         
         self.title_vec = None
@@ -232,6 +238,7 @@ class News_encoder(nn.Module):
         self.vert_vec = None
         self.subvert_vec = None
         self.entity_vec = None
+        self.topic_vec = None
 
         if 'title' in config['attrs']:
             self.title_encoder = Doc_encoder(config, config['title_length'], self.word_embedding_layer)
@@ -270,10 +277,18 @@ class News_encoder(nn.Module):
         if 'entity' in self.config['attrs']:
             entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]]) (x)
             entity_emb = self.entity_embedding_layer(entity_input)
+
             entity_vecs = self.attention(entity_emb,entity_emb,entity_emb)
+            
             self.entity_vec = self.attentive_pool(entity_vecs)
 
-        vec_Table = {'title':self.title_vec,'body':self.body_vec,'vert':self.vert_vec, 'entity': self.entity_vec, 'subvert': self.subvert_vec}
+        if 'topic' in self.config['attrs']:
+            topic_input = (lambda xi: xi[:, self.PositionTable['topic'][0] : self.PositionTable['topic'][1]]) (x)
+            topic_emb = self.topic_embedding_layer(topic_input)
+            topic_vecs = self.attention(topic_emb,topic_emb,topic_emb)
+            self.topic_vec = self.attentive_pool(topic_vecs)
+
+        vec_Table = {'title':self.title_vec,'body':self.body_vec,'vert':self.vert_vec, 'entity': self.entity_vec, 'subvert': self.subvert_vec, 'topic': self.topic_vec}
         feature = []
         for attr in self.config['attrs']:
             feature.append(vec_Table[attr])
@@ -383,7 +398,7 @@ class News_encoder(nn.Module):
 #     return model
 
 class News_encoder_co1(nn.Module):
-    def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix):
+    def __init__(self, config, vert_num, subvert_num, word_num, word_embedding_matrix, entity_embedding_matrix, image_emb_matrix):
         super().__init__()
         self.config = config
         self.vert_num = vert_num
@@ -391,9 +406,11 @@ class News_encoder_co1(nn.Module):
         self.word_num = word_num
         self.word_embedding_matrix = word_embedding_matrix
         self.entity_embedding_matrix = entity_embedding_matrix
+        self.image_emb_mat = image_emb_matrix
         self.LengthTable = {'title':config['title_length'],
                    'vert':1,'subvert':1,
-                   'entity':config['max_entity_num']}
+                   'entity':config['max_entity_num'],
+                   'image' : config['image_emb_len']}
         self.input_length = 0
         self.PositionTable = {}
         for v in config['attrs']:
@@ -403,11 +420,14 @@ class News_encoder_co1(nn.Module):
         self.word_embedding_layer = nn.Embedding(self.word_num + 1, word_embedding_matrix.shape[1]) # keras.layers.embedding 
         self.entity_embedding_layer = nn.Embedding(entity_embedding_matrix.shape[0], entity_embedding_matrix.shape[1]) # keras.layers.embedding 
         self.vert_embedding_layer = nn.Embedding(self.vert_num + 1, 200) # Embedding(vert_num+1, 200,trainable=True) 
+        self.image_embedding_layer = nn.Embedding(image_emb_matrix.shape[0], image_emb_matrix.shape[1])
+        self.image_embedding_layer.weight.requires_grad = False
         
         
         with torch.no_grad():
             self.word_embedding_layer.weight = nn.Parameter(torch.from_numpy(word_embedding_matrix).float())
             self.entity_embedding_layer.weight = nn.Parameter(torch.from_numpy(entity_embedding_matrix).float())
+            self.image_embedding_layer.weight = nn.Parameter(torch.from_numpy(image_emb_matrix).float())
 
         self.attention = Attention(20,20,300, 300, 300)
         self.attention2 = Attention(5,40, 300, 300, 300)
@@ -438,6 +458,15 @@ class News_encoder_co1(nn.Module):
         entity_input = (lambda xi: xi[:, self.PositionTable['entity'][0] : self.PositionTable['entity'][1]])  (x)
         entity_emb = self.entity_embedding_layer(entity_input)
 
+        if ('image' in self.config['attrs']):
+            image_imp = (lambda xi: xi[:, self.PositionTable['image'][0] : self.PositionTable['image'][1]])  (x)
+            # print(image_imp)
+            image_emb = self.image_embedding_layer(image_imp)
+            # print(image_emb.shape)
+            image_emb = image_emb.view(-1, 1024)
+            # print(image_emb.shape)
+            image_vec = self.dropout(image_emb)
+
         title_co_emb = self.attention2(title_emb,entity_emb,entity_emb)
         entity_co_emb = self.attention2(entity_emb,title_emb,title_emb)
         
@@ -453,7 +482,11 @@ class News_encoder_co1(nn.Module):
         entity_vecs = self.dropout(entity_vecs)
         entity_vec = self.attentive_pool(entity_vecs)
 
-        feature = [title_vec, entity_vec, vert_vec]
+
+        if ('image' in self.config['attrs']):
+            feature = [title_vec, entity_vec, vert_vec, image_vec]
+        else:
+            feature = [title_vec, entity_vec, vert_vec]
 
         news_vec = torch.cat(feature, dim = -1)
         news_vec = self.fc3(news_vec)
@@ -848,7 +881,7 @@ class Multiply(nn.Module):
 
     
 class PE_model(nn.Module):
-    def __init__(self, config, model_config, News, word_embedding_matrix, entity_embedding_matrix, device):
+    def __init__(self, config, model_config, News, word_embedding_matrix, entity_embedding_matrix, image_emb_matrix, topic_emb_matrix, device):
         super().__init__()
         self.device = device
         self.config = config
@@ -856,14 +889,16 @@ class PE_model(nn.Module):
         self.News = News
         self.word_emb_mat = word_embedding_matrix
         self.entity_emb_mat = entity_embedding_matrix
+        self.image_emb_mat = image_emb_matrix
+        self.topic_emb_mat = topic_emb_matrix
         # print(model_config)
         if model_config['news_encoder'] == 0:
-            self.news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
-            self.bias_news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat) 
+            self.news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat, self.topic_emb_mat)
+            self.bias_news_encoder = News_encoder(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat, self.topic_emb_mat) 
 
         elif model_config['news_encoder'] == 1:
-            self.news_encoder = News_encoder_co1(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
-            self.bias_news_encoder = News_encoder_co1(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat)
+            self.news_encoder = News_encoder_co1(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat, self.image_emb_mat)
+            self.bias_news_encoder = News_encoder_co1(self.config, len(self.News.category_dict), len(self.News.subcategory_dict), len(self.News.word_dict), self.word_emb_mat, self.entity_emb_mat, self.image_emb_mat)
 
         self.pop_aware_user_encoder = Popularity_aware_user_encoder(self.config, self.model_config, self.news_encoder)
         self.bias_scorer = Bias_content_scorer(self.config, self.model_config)
@@ -935,9 +970,9 @@ class PE_model(nn.Module):
         return logits
 
 
-def create_pe_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix, device):
+def create_pe_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix, image_emb_matrix, topic_emb_matrix, device):
 
-    model = PE_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix, device)
+    model = PE_model(config, model_config, News, word_embedding_matrix, entity_embedding_matrix, image_emb_matrix, topic_emb_matrix, device)
     # use these params when training model. no 'compile' in torch
     # model.compile(loss=['categorical_crossentropy'],
     #               optimizer=Adam(lr=0.0001), 
