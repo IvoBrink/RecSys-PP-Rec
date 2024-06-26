@@ -3,6 +3,7 @@ from utils import *
 from collections import defaultdict
 import os
 import json
+import pickle
 
 
 # def trans2tsp(date):
@@ -22,8 +23,10 @@ class NewsContent():
         self.read_news()
         self.get_doc_input()
         self.load_entitiy()
+        self.load_topics()
         self.load_ctr()
         self.load_publish_time()
+        # self.load_images()
 
     def fetch_news(self,docids,):
         title = None
@@ -31,6 +34,8 @@ class NewsContent():
         subvert = None
         body = None
         entity = None
+        image = None
+        topic = None
         config = self.config
         if 'title' in config['attrs']:   
             title = self.title[docids]
@@ -44,8 +49,13 @@ class NewsContent():
             body = self.body[docids]
         if 'entity' in config['attrs']:
             entity = self.doc2entities[docids]
+        if 'image' in config['attrs']:
+            image = docids.reshape(list(docids.shape)+[1])
+        if 'topic' in config['attrs']:
+            topic = self.doc2topics[docids]
+
             
-        FeatureTable = {'title':title,'vert':vert,'subvert':subvert,'body':body,'entity':entity}
+        FeatureTable = {'title':title,'vert':vert,'subvert':subvert,'body':body,'entity':entity, 'image':image, 'topic':topic}
         # print(FeatureTable)
         feature = [FeatureTable[v] for v in config['attrs']]
         feature = np.concatenate(feature, axis=-1)
@@ -166,7 +176,7 @@ class NewsContent():
         self.subvert = news_subvert
         self.body = news_body
 
-    #FIXME: This function is completely useless, we do not use entities?
+   
     def load_entitiy(self,):
         config = self.config
         KG_root_path = config['KG_root_path']
@@ -181,7 +191,6 @@ class NewsContent():
             EntityIndex2Id[int(eindex)] = eid
         self.entity_dict = EntityId2Index
 
-        # doc2entities = defaultdict(lambda:[0]* self.config['max_entity_num'])
         doc2entities = np.zeros((len(self.news_index) + 1, self.config['max_entity_num']), dtype='int32')
         with open(os.path.join(KG_root_path,'doc2entitiesid.txt'), encoding="utf8") as f:
             lines = f.readlines()
@@ -191,13 +200,32 @@ class NewsContent():
                 entities = entities.split()
                 for i in range(min(len(entities),5)):
                     doc2entities[doc_id][i] = int(entities[i])
-                # if len(entities) > 5:
-                #     doc2entities[ self.news_index['N' +doc_id]] = [int(entity) for entity in entities][:5]
-                # elif len(entities)<5:
-                #     doc2entities[ self.news_index['N' +doc_id]] = [int(entity) for entity in entities] + [0]*(5-len(entities))
-                # else:
-                #     doc2entities[ self.news_index['N' +doc_id]] = [int(entity) for entity in entities]
         self.doc2entities = doc2entities
+
+    def load_topics(self,):
+        config = self.config
+        KG_root_path = config['KG_root_path']
+
+        with open(os.path.join(KG_root_path,'topics2id.txt'), encoding="utf8") as f:
+            lines = f.readlines()
+        TopicId2Index = {}
+        TopicIndex2Id = {}
+        for line in lines:
+            tindex, tid = line.strip('\n').split('\t')
+            TopicId2Index[tid] = int(tindex)
+            TopicIndex2Id[int(tindex)] = tid
+        self.topic_dict = TopicId2Index
+
+        doc2topics = np.zeros((len(self.news_index) + 1, self.config['max_topics_num']), dtype='int32')
+        with open(os.path.join(KG_root_path,'doc2topicsid.txt'), encoding="utf8") as f:
+            lines = f.readlines()
+            for line in lines:
+                doc_id, topics = line.strip('\n').split('\t')
+                doc_id = self.news_index['N' +doc_id]
+                topics = topics.split()
+                for i in range(min(len(topics),5)):
+                    doc2topics[doc_id][i] = int(topics[i])
+        self.doc2topics = doc2topics
 
     def load_ctr(self,):
         news_index = self.news_index
@@ -265,3 +293,21 @@ class NewsContent():
     # def get_candidate(self, idx):
     #     candidate = self.title[idx] + self.body[idx] + self.vert[idx]
     #     return candidate
+
+    # def load_images(self):
+
+        # with open(self.config['data_root_path']+'image_embeddings.pkl', 'rb') as f:
+        #     data = pickle.load(f)
+
+        #     image_embs = np.zeros((len(self.news_index)+1, len(data.popitem()[1]),),dtype='float32')
+
+        #     for key in data:
+
+        #         if key in self.news_index:
+        #             image_embs[self.news_index[key]] = data[key]
+                    
+        #     self.image_embs = image_embs
+
+
+
+

@@ -263,7 +263,7 @@ class UserDataset(Dataset):
 
         clicked_ids = self.Users.click[idx]
         # print(clicked_ids)
-        user_feature = torch.IntTensor([self.News.fetch_news(clicked_ids)])
+        user_feature = torch.IntTensor(np.array([self.News.fetch_news(clicked_ids)]))
         click_bucket = self.Users.click_bucket[idx]
         click_ctr = torch.IntTensor([fetch_ctr_dim3(self.News, clicked_ids, click_bucket, FLAG_CTR)])
 
