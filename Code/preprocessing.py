@@ -18,7 +18,6 @@ def get_train_input(session,news_index,config):
     print(len(session))
     for sess_id in range(len(session)):
         sess = session[sess_id]
-        # print(sess)
         
         _,_,bucket, poss, negs=sess
         for i in range(len(poss)):
@@ -40,7 +39,6 @@ def get_train_input(session,news_index,config):
         for neg in negs:
             sess_all[sess_id,index] = news_index[neg]
             index+=1
-        #index = np.random.randint(1+npratio)
         label[sess_id,0]=1
     user_id = np.array(user_id, dtype='int32')
     

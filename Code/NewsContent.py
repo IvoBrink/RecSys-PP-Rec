@@ -1,21 +1,6 @@
 import numpy as np
 from utils import *
-from collections import defaultdict
 import os
-import json
-import pickle
-
-
-# def trans2tsp(date):
-#     return int(datetime.strptime(date, '%m/%d/%Y %I:%M:%S %p').timestamp())
-
-# oldest articles = 2000-10-02 15:10:00
-# anchor = trans2tsp('04/16/2023 11:59:59 PM')
-# def parse_time_bucket(date):
-#     tsp = trans2tsp(date)
-#     tsp = tsp - anchor
-#     tsp = tsp//3600
-#     return tsp
 
 class NewsContent():
     def __init__(self,config,):
@@ -26,7 +11,6 @@ class NewsContent():
         self.load_topics()
         self.load_ctr()
         self.load_publish_time()
-        # self.load_images()
 
     def fetch_news(self,docids,):
         title = None
@@ -56,7 +40,6 @@ class NewsContent():
 
             
         FeatureTable = {'title':title,'vert':vert,'subvert':subvert,'body':body,'entity':entity, 'image':image, 'topic':topic}
-        # print(FeatureTable)
         feature = [FeatureTable[v] for v in config['attrs']]
         feature = np.concatenate(feature, axis=-1)
         return feature
@@ -73,7 +56,6 @@ class NewsContent():
             lines=f.readlines()
         for line in lines:
             splited = line.strip('\n').split('\t')
-            # print(splited)
             doc_id,title,vert,subvert= splited[0:4]
             if len(splited)>4:
                 body = splited[4]
@@ -268,7 +250,6 @@ class NewsContent():
             nindex = news_index[nid]
             if tsp=='':
                 tsp = '05/17/2023 11:59:59 PM'
-            #tsp = trans2tsp(tsp)
             bucket = parse_time_bucket(tsp)
             news_publish_bucket2[nindex,] = bucket
         index = news_publish_bucket2 < 0
@@ -277,36 +258,11 @@ class NewsContent():
 
         news_publish_bucket = np.zeros((len(news_index)+1,),dtype='int32')
         news_stat_imp = self.news_stat_imp
-        # print(news_stat_imp.shape[0])
         for i in range(1,news_stat_imp.shape[0]):
             start = (news_stat_imp[i]>0).argmax()
             news_publish_bucket[i,] = start
         self.news_publish_bucket = news_publish_bucket
 
-    # def get_ctr(self, did, time):
-    #     if(did==0):
-    #         return 0
-    #     # print(did, time)
-    #     ctr = np.sum(self.news_stat_click[did][time-20:time]) / (np.sum(self.news_stat_imp[did][time-20:time] + np.finfo(float).eps))
-    #     return ctr
-    
-    # def get_candidate(self, idx):
-    #     candidate = self.title[idx] + self.body[idx] + self.vert[idx]
-    #     return candidate
-
-    # def load_images(self):
-
-        # with open(self.config['data_root_path']+'image_embeddings.pkl', 'rb') as f:
-        #     data = pickle.load(f)
-
-        #     image_embs = np.zeros((len(self.news_index)+1, len(data.popitem()[1]),),dtype='float32')
-
-        #     for key in data:
-
-        #         if key in self.news_index:
-        #             image_embs[self.news_index[key]] = data[key]
-                    
-        #     self.image_embs = image_embs
 
 
 
