@@ -1,8 +1,8 @@
 # PP-Rec
-Codes of the PP-Rec method published in ACL 2021.
+Reproduction of the PP-Rec method published in ACL 2021.
 
 
-# Datasets (RecSys challenge)
+# Datasets used (RecSys challenge)
 Ekstra Bladet News Recommendation Dataset - General License Terms
 Thank you! 
 
